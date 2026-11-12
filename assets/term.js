@@ -524,6 +524,30 @@ $('#palL').addEventListener('click', e => { const b = e.target.closest('[data-pi
 $('#pal').addEventListener('click', e => { if (e.target.id === 'pal') palClose(); });
 document.addEventListener('keydown', e => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); $('#pal').hidden ? palOpen() : palClose(); } else if (e.key === '/' && !/INPUT|TEXTAREA/.test(document.activeElement.tagName) && document.body.classList.contains('ready')) { e.preventDefault(); palOpen(); } else if (e.key === 'Escape' && !$('#pal').hidden) palClose(); });
 
+
+// ------------------------------------------------------------ tooltips: every button says what it does
+const TIPS = { opsec: 'how doxxed is a wallet: a score, every leak with its evidence, a map', trace: 'follow the first SOL back, hop by hop, to an exchange or a person', link: 'are two wallets the same person? transfers, funders, hours, bags', clock: 'when a wallet is awake, and the timezone that gives away', bags: 'everything anyone can see it holds, priced', apps: 'which apps it uses: its fingerprint', name: '.sol names pointing at it', whoami: 'what this browser tells every site. runs locally, sends nothing', drop: 'sealed notes between wallets: key · send · inbox · sent', leaks: 'the 10 ways wallets get doxxed, and the fix for each', coin: '$PR1V: contract, price, chart', about: 'what pr1v is and what it never does', help: 'every command', trenches: 'live pump.fun launches with what is public about each dev', dev: 'who launched a coin: funding, other launches, wallets it pays', holders: 'the 20 biggest holders, the dev, how concentrated it is', watch: 'get pinged here when a wallet moves', unwatch: 'stop watching a wallet', token: 'a coin at a glance', share: 'a score card for X that leaves your address out', clear: 'clear the screen', connect: 'connect Phantom, Solflare or Backpack', ca: 'copy the contract address', buy: 'open $PR1V on pump.fun', chart: 'open the chart', x: 'open pr1v on X', faq: 'the questions people ask', roadmap: 'what is live and what is next', theme: 'black or light' };
+function tipFor(el) { if (el.dataset.tip) return el.dataset.tip; const c = (el.dataset.run || el.dataset.fill || '').trim();
+  if (c) { const k = c.split(/\s+/)[0].toLowerCase(), d = TIPS[ALIAS[k] || k]; return `${d ? `<b>${esc(k)}</b>${esc(d)}<br>` : ''}<code>${el.dataset.fill ? 'type: ' : 'runs: '}${esc(c.length > 44 ? c.slice(0, 42) + '…' : c)}${el.dataset.fill ? ' …' : ''}</code>`; }
+  if (el.dataset.copy) return 'copy the contract address'; if (el.dataset.act === 'share') return TIPS.share; if (el.dataset.pi) return null;
+  if (el.matches('a[href^="http"]')) { try { return 'opens ' + new URL(el.href).host + ' in a new tab'; } catch { } } return null; }
+const TIP = $('#tip'); let tipT = null, tipEl = null;
+function tipShow(el) { const h = tipFor(el); if (!h) return; TIP.innerHTML = h; TIP.classList.add('on'); const r = el.getBoundingClientRect(), tw = TIP.offsetWidth, th = TIP.offsetHeight; let x = Math.min(innerWidth - tw - 8, Math.max(8, r.left + r.width / 2 - tw / 2)), y = r.bottom + 8; if (y + th > innerHeight - 8) y = r.top - th - 8; TIP.style.left = x + 'px'; TIP.style.top = y + 'px'; }
+document.addEventListener('mouseover', e => { const el = e.target.closest('[data-tip],[data-run],[data-fill],[data-copy],[data-act],.out a[href],.btns a[href],.cact a,.feed a'); if (el === tipEl) return; tipEl = el; clearTimeout(tipT); TIP.classList.remove('on'); if (el && document.body.classList.contains('ready')) tipT = setTimeout(() => tipShow(el), 380); });
+document.addEventListener('scroll', () => { TIP.classList.remove('on'); }, true); document.addEventListener('mousedown', () => { clearTimeout(tipT); TIP.classList.remove('on'); });
+
+// ------------------------------------------------------------ window controls and folding panels
+const FOLD = new Set(store.get('fold', []));
+$$('.side .w').forEach(w => { const t = w.querySelector('.ttl'); if (t && FOLD.has(t.textContent)) w.classList.add('folded'); });
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-win]'); if (b) { e.preventDefault(); const t = $('#term'); const k = b.dataset.win;
+    if (k === 'min') { t.classList.toggle('min'); toast(t.classList.contains('min') ? 'terminal folded. click – again to open it' : 'terminal open'); }
+    else if (k === 'max') { document.body.classList.toggle('max'); t.classList.remove('min'); }
+    else { t.classList.remove('min'); showTab('term'); OUT.innerHTML = ''; ln('[process completed]', 'dim'); setTimeout(() => { OUT.innerHTML = ''; bannerLines(); IN.focus({ preventScroll: true }); }, 650); }
+    return; }
+  const f = e.target.closest('[data-fold]'); if (f) { const w = f.closest('.w'); if (!w) return; w.classList.toggle('folded'); const t = w.querySelector('.ttl').textContent; w.classList.contains('folded') ? FOLD.add(t) : FOLD.delete(t); store.set('fold', [...FOLD]); }
+});
+
 // ------------------------------------------------------------ runner
 const ALIAS = { top: 'holders', bundle: 'holders', follow: 'watch', track: 'watch', trench: 'trenches', live: 'trenches', pump: 'trenches', who: 'dev', deployer: 'dev', creator: 'dev', scan: 'opsec', score: 'opsec', doxx: 'opsec', '?': 'help', man: 'help', funding: 'trace', names: 'name', sns: 'name', hours: 'clock', tz: 'clock', balance: 'bags', fingerprint: 'whoami', inbox: 'drop', cls: 'clear', ca: 'ca' };
 const CMDS = ['trenches', 'dev', 'token', 'holders', 'watch', 'unwatch', 'opsec', 'trace', 'link', 'clock', 'bags', 'apps', 'name', 'whoami', 'drop', 'leaks', 'share', 'connect', 'disconnect', 'coin', 'ca', 'buy', 'chart', 'x', 'about', 'faq', 'roadmap', 'ls', 'cat', 'history', 'clear', 'theme', 'intro', 'help', 'date', 'echo', 'sudo', 'exit', 'me'];
@@ -548,7 +572,7 @@ async function run(line, silent) {
       case 'cat': (FILES[a[0]] || (() => ln(`cat: ${esc(a[0] || '')}: no such file`, 'dim')))(); break;
       case 'history': HIST.slice(-20).forEach((h, i) => ln(`<span class="faint">${String(i + 1).padStart(3)}</span>  ${cmd(h)}`)); break;
       case 'clear': OUT.innerHTML = ''; break;
-      case 'theme': setTheme(a[0] || (document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark')); ln(`theme: ${document.documentElement.dataset.theme}`, 'dim'); break;
+      case 'theme': setTheme(a[0] === 'black' ? 'dark' : a[0] || (document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark')); ln(`theme: ${document.documentElement.dataset.theme}`, 'dim'); break;
       case 'intro': try { sessionStorage.removeItem('pr1vIntro'); } catch { } location.reload(); break;
       case 'date': { const off = -new Date().getTimezoneOffset() / 60; ln(`${new Date().toString().replace(/ \(.+\)$/, '')}`); ln(`${new Date().toUTCString()}`, 'dim'); ln(`your browser tells every site you are on UTC${off >= 0 ? '+' : ''}${off}.`, 'dim'); break; }
       case 'echo': ln(esc(a.join(' '))); break;
@@ -580,9 +604,9 @@ document.addEventListener('click', e => {
 $('#paneTerm').addEventListener('click', e => { if (!e.target.closest('a,button,input') && !getSelection().toString()) IN.focus({ preventScroll: true }); });
 $('#wallet').onclick = () => WALLET ? (copy(WALLET, 'your address is copied')) : run('connect');
 $('#menuBtn').onclick = () => document.body.classList.toggle('side-open');
-function setTheme(t) { t = t === 'dark' ? 'dark' : 'light'; document.documentElement.dataset.theme = t; store.set('theme', t); document.querySelector('meta[name=theme-color]').content = t === 'dark' ? '#18181c' : '#e1e1e5'; }
+function setTheme(t) { t = t === 'light' ? 'light' : 'dark'; document.documentElement.dataset.theme = t; store.set('theme2', t); document.querySelector('meta[name=theme-color]').content = t === 'dark' ? '#070709' : '#e1e1e5'; }
 $('#theme').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
-setTheme(store.get('theme', 'light'));
+setTheme(store.get('theme2', 'dark'));
 $('#scanF').addEventListener('submit', e => { e.preventDefault(); const v = $('#scanI').value.trim(); if (!v) return $('#scanI').focus(); $('#scanI').value = ''; document.body.classList.remove('side-open'); run('opsec ' + v); });
 
 // ------------------------------------------------------------ side widgets
@@ -611,14 +635,17 @@ const ART = `██████╗ ██████╗  ██╗██╗   �
 ██║     ██║  ██║ ██║ ╚████╔╝
 ╚═╝     ╚═╝  ╚═╝ ╚═╝  ╚═══╝`;
 let booted = false;
-async function boot() {
-  if (booted) return; booted = true; document.body.classList.add('ready');
-  fpW(); todoW(); dropW(); coinW(); trPoll(true); watchW(); sbar(); setTimeout(watchPoll, 4000);
+async function bannerLines() {
   const d = new Date(); const step = reduced ? 0 : 90;
   const L = [() => ln(`last login: ${d.toDateString()} ${d.toTimeString().slice(0, 8)} on ttys001`, 'dim boot'), () => pre(ART, 'art boot'), () => ln('<b>pr1v</b> · the privacy layer for solana', 'boot'), () => ln('public chain. pr1v you.', 'dim boot'), () => ln('', 'boot'),
     () => html(`<div class="tbl boot"><span>${cmd('trenches')}</span><span>live pump.fun launches and who is behind them</span><span>${cmd('opsec ', 'opsec <wallet>')}</span><span>how doxxed is a wallet</span><span>${cmd('whoami')}</span><span>what this browser gives away</span><span>${cmd('trace ', 'trace <wallet>')}</span><span>follow its first SOL back</span><span>${cmd('drop')}</span><span>sealed notes between wallets</span><span>${cmd('help')}</span><span>everything else</span></div>`),
     () => ln('paste any wallet and press enter. nothing you scan is stored.', 'dim boot')];
   for (const f of L) { f(); await sleep(step); }
+}
+async function boot() {
+  if (booted) return; booted = true; document.body.classList.add('ready');
+  fpW(); todoW(); dropW(); coinW(); trPoll(true); watchW(); sbar(); setTimeout(watchPoll, 4000);
+  await bannerLines();
   const q = new URLSearchParams(location.search); const w = q.get('w') || (location.hash.match(/^#\/?([1-9A-HJ-NP-Za-km-z]{32,44})$/) || [])[1];
   if (w && isAddr(w)) run('opsec ' + w);
   if (matchMedia('(pointer: fine)').matches) IN.focus({ preventScroll: true });

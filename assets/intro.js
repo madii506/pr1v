@@ -186,17 +186,19 @@ function drawScreen(state, tt) {
         const pw = 300, ph = 56, px = (w - pw) / 2, py = 214;
         const X = lerp(px, 0, ex), Y = lerp(py, 0, ex), W = lerp(pw, w, ex), H = lerp(ph, h, ex), R = lerp(28, 0, ex);
         x.globalAlpha = pk; x.font = '600 15px monospace'; x.textAlign = 'center'; x.fillStyle = DIM; x.fillText('anon', w / 2, 190); x.textAlign = 'left';
-        const fill = ex > 0 ? `rgb(${Math.round(lerp(10, 231, ex))},${Math.round(lerp(13, 231, ex))},${Math.round(lerp(10, 234, ex))})` : BG;
-        x.fillStyle = fill; x.beginPath(); x.roundRect(X, Y, W, H, R); x.fill(); x.strokeStyle = tt > 2.85 ? LIME : '#3d4d2a'; x.lineWidth = 2; if (ex < .98) { x.globalAlpha = pk * (1 - ex); x.stroke(); }
+        const fill = ex > 0 ? `rgb(${Math.round(lerp(10, 5, ex))},${Math.round(lerp(13, 5, ex))},${Math.round(lerp(10, 6, ex))})` : BG;
+        x.fillStyle = fill; x.beginPath(); x.roundRect(X, Y, W, H, R); x.fill(); x.strokeStyle = tt > 2.85 ? LIME : '#3d4d2a'; x.lineWidth = 2 + ex * 2; if (ex < .98) { x.globalAlpha = pk * (1 - ex * .6); x.stroke(); }
         x.globalAlpha = pk * (1 - ex * 2.5 > 0 ? 1 - ex * 2.5 : 0); x.fillStyle = LIME; for (let i = 0; i < n; i++) { x.beginPath(); x.arc(px + 44 + i * 30, py + ph / 2, 6.5, 0, 7); x.fill(); }
         if (n < 8 && Math.floor(tt * 5) % 2 === 0) x.fillRect(px + 34 + n * 30, py + 16, 3, 24); x.globalAlpha = 1; }
     }
     if (tt < 2.95) for (let y = 0; y < h; y += 3) { x.fillStyle = 'rgba(0,0,0,.16)'; x.fillRect(0, y, w, 1); }
   }
-  if (state === 'term') { x.fillStyle = '#e7e7ea'; x.fillRect(0, 0, w, h); x.fillStyle = '#f5f5f7'; x.fillRect(14, 30, w - 28, h - 44); x.fillStyle = '#e1e1e5'; x.fillRect(14, 30, w - 28, 22); x.fillStyle = '#e1e1e5'; x.fillRect(0, 0, w, 20);
-    x.fillStyle = '#26262b'; x.font = '700 11px monospace'; x.fillText('pr1v', 10, 14); x.fillStyle = '#85858f'; x.font = '10px monospace'; x.fillText('pr1v — anon — 160×24', 36, 45);
-    x.fillStyle = '#85858f'; x.font = '12px monospace'; x.fillText('last login on ttys001', 30, 76); x.fillStyle = '#4f8d14'; x.font = '700 22px monospace'; x.fillText('pr1v', 30, 110); x.fillStyle = '#26262b'; x.font = '12px monospace'; x.fillText('public chain. pr1v you.', 30, 132);
-    x.fillStyle = '#85858f'; x.fillText('anon@laptop ~ %', 30, h - 30); x.fillStyle = '#c6ff3d'; x.fillRect(150, h - 42, 8, 15); }
+  if (state === 'term') { // the black terminal you are about to land in
+    x.fillStyle = '#030304'; x.fillRect(0, 0, w, h); x.fillStyle = '#070709'; x.fillRect(0, 0, w, 20); x.fillStyle = '#050506'; x.fillRect(12, 28, w - 24, h - 40); x.fillStyle = '#0b0c0b'; x.fillRect(12, 28, w - 24, 20);
+    x.font = '700 11px monospace'; x.fillStyle = '#e9ece6'; x.fillText('pr1v', 10, 14); x.fillStyle = LIME; x.font = '10px monospace'; x.fillText('pr1v — anon — 160×24', 24, 42);
+    x.fillStyle = '#7c8076'; x.font = '12px monospace'; x.fillText('last login on ttys001', 28, 72); x.fillStyle = LIME; pixWord(x, 28, 86, 5, false);
+    x.fillStyle = '#dfe6d8'; x.font = '12px monospace'; x.fillText('public chain. pr1v you.', 28, 142);
+    x.fillStyle = '#7c8076'; x.fillText('anon@laptop ~ %', 28, h - 42); x.fillStyle = LIME; x.fillRect(146, h - 53, 8, 14); x.fillStyle = LIME; x.fillRect(12, h - 26, w - 24, 14); x.fillStyle = '#050506'; x.font = '700 10px monospace'; x.fillText('[pr1v] 0:term*', 18, h - 15); }
   screenTex.needsUpdate = true;
 }
 drawScreen('off', 0);
@@ -444,7 +446,7 @@ function frame(t) {
     const drop = (1 - hv) * .35; kL.y -= drop; kR.y -= drop; kL.z -= drop * .6; kR.z -= drop * .6;
     HANDS[0].g.visible = HANDS[1].g.visible = false; // first person, no body in frame
     fadeA = 1 - ss(0, .45, ti); fadeC = '#fff2dc'; grain = 1 - ss(8.6, 9.5, ti);
-    if (ti > 9.4) { fadeC = document.documentElement.dataset.theme === 'dark' ? '#08080a' : '#e7e7ea'; fadeA = ss(9.4, 9.85, ti); }
+    if (ti > 9.4) { fadeC = document.documentElement.dataset.theme === 'light' ? '#e7e7ea' : '#030304'; fadeA = ss(9.4, 9.85, ti); }
   }
   film.uniforms.amt.value = grain;
   if (fadeEl) { fadeEl.style.background = fadeC; fadeEl.style.opacity = fadeA.toFixed(3); }

@@ -293,3 +293,59 @@ kbd { font: 600 10.5px JB, monospace; padding: 2px 6px; border-radius: 5px; bord
 .map .n { cursor: pointer; } .map .n:hover circle { stroke-width: 2.5; }
 @media (max-width: 980px) { .kbtn { min-width: 0; } .kbtn span { display: none; } }
 @media (max-width: 560px) { .kbtn { display: none; } .tape { height: 30px; } }
+
+/* ===== black terminal (default) ===== */
+[data-theme=dark] {
+  --bg: #030304; --dot: #101013; --win: #08080a; --bar: #0f0f12; --line: #1c1c21; --tx: #e9ece6; --dim: #7c8076; --faint: #34363a;
+  --ink: #b8f23c; --lime: #c6ff3d; --lime2: #c6ff3d; --red: #ff5f52; --amber: #f5b94a; --blk: #e9ece6; --sel: rgba(198, 255, 61, .28);
+  --shadow: 0 0 0 1px rgba(198,255,61,.04), 0 30px 80px -30px rgba(0,0,0,.9);
+}
+[data-theme=dark] #os { background: var(--bg) radial-gradient(rgba(198,255,61,.045) 1px, transparent 1.3px) 0 0 / 22px 22px; }
+[data-theme=dark] .bar { background: #070709; }
+[data-theme=dark] .term { position: relative; background: #050506; border-color: #1a1c18; }
+[data-theme=dark] .term .tbar { background: #0b0c0b; }
+[data-theme=dark] .tab.on { background: #050506; color: var(--lime); }
+[data-theme=dark] .out { color: #dfe6d8; text-shadow: 0 0 1px rgba(198,255,61,.12); }
+[data-theme=dark] .term::after { content: ''; position: absolute; inset: 30px 0 26px; pointer-events: none; background: repeating-linear-gradient(180deg, rgba(255,255,255,.018) 0 1px, transparent 1px 3px), radial-gradient(120% 90% at 50% 40%, transparent 60%, rgba(0,0,0,.45)); z-index: 1; }
+[data-theme=dark] .prompt { border-top-color: #161813; background: #070807; }
+[data-theme=dark] .ps .u { color: var(--lime); }
+[data-theme=dark] #in { color: #f2f7ec; caret-color: var(--lime); }
+[data-theme=dark] .art { color: var(--lime); text-shadow: 0 0 12px rgba(198,255,61,.25); }
+[data-theme=dark] .ln.in { color: #f2f7ec; }
+[data-theme=dark] .ln.in::before { content: ''; display: block; height: 1px; margin: 4px 0 10px; background: linear-gradient(90deg, #1c2016, transparent 70%); }
+[data-theme=dark] .hd b { color: var(--lime); }
+[data-theme=dark] .chips button { border-color: #1d2018; color: #9aa38e; }
+[data-theme=dark] .chips button:hover { border-color: var(--lime); color: var(--lime); }
+[data-theme=dark] .btns .pri, [data-theme=dark] .row button, [data-theme=dark] .wal:not(.on) { background: var(--lime); color: #0a0c06; border-color: var(--lime); }
+[data-theme=dark] .seg button.on { background: var(--lime); color: #0a0c06; }
+[data-theme=dark] .card { background: #0b0c0a; }
+[data-theme=dark] .sbar { background: var(--lime); color: #2b3312; }
+[data-theme=dark] .sbar b, [data-theme=dark] .sbar .sw.on, [data-theme=dark] .sbar .ok { color: #050506; }
+[data-theme=dark] .sbar .sw { color: #4e5a22; }
+[data-theme=dark] .crow:hover { background: #0e100c; }
+[data-theme=dark] .map { background: #070807; }
+.ln, .card, pre.bk, .tbl, .leak, .btns, .map, .score { animation: lnIn .28s ease-out both; }
+@keyframes lnIn { from { opacity: 0; transform: translateY(3px); } }
+.out > * { position: relative; z-index: 2; }
+
+/* window controls that work */
+.tbar .ctl { display: flex; gap: 4px; }
+.tbar .ctl button { width: 26px; height: 22px; border-radius: 5px; color: var(--dim); font-size: 13px; line-height: 1; }
+.tbar .ctl button:hover { background: color-mix(in srgb, var(--tx) 10%, transparent); color: var(--tx); }
+.tbar .ctl button[data-win=close]:hover { background: color-mix(in srgb, var(--red) 22%, transparent); color: var(--red); }
+.fold { margin-left: auto; width: 22px; height: 22px; border-radius: 5px; color: var(--faint); }
+.fold:hover { color: var(--tx); background: color-mix(in srgb, var(--tx) 8%, transparent); }
+.tbar .live + .fold, .tbar .fold:not(:first-child) { margin-left: 8px; }
+.w.folded > :not(.tbar) { display: none; }
+.w.folded .fold { transform: rotate(90deg); }
+.term.min .pane, .term.min .sbar { display: none !important; }
+.term.min { flex: none; align-self: start; }
+body.max .desk { grid-template-columns: minmax(0, 1fr); }
+body.max .side { display: none; }
+
+/* tooltips */
+#tip { position: fixed; z-index: 80; max-width: 300px; padding: 8px 11px; border-radius: 8px; background: #111312; color: #e9ece6; border: 1px solid #262a22; font: 500 11.5px/1.45 JB, monospace; pointer-events: none; opacity: 0; transform: translateY(4px); transition: opacity .12s, transform .12s; box-shadow: 0 12px 30px -10px rgba(0,0,0,.6); }
+#tip.on { opacity: 1; transform: none; }
+#tip b { color: #c6ff3d; display: block; margin-bottom: 2px; }
+#tip code { color: #9aa38e; }
+@media (hover: none) { #tip { display: none; } }
