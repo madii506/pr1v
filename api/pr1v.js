@@ -233,6 +233,17 @@ async function dev(w) {
     apps: [...new Set(sum.filter(x => x.signer).flatMap(x => x.progs))].slice(0, 8) };
 }
 
+// ------------------------------------------------------------------ holders: the 20 biggest token accounts, who owns them, and which ones are programs (curves, pools)
+async function holders(m) {
+  const [sup, big] = await Promise.all([rpc('getTokenSupply', [m]), rpc('getTokenLargestAccounts', [m, { commitment: 'confirmed' }])]);
+  const list = (big && big.value || []).slice(0, 20); const supply = +(sup && sup.value && sup.value.uiAmount) || 0;
+  const infos = list.length ? await rpc('getMultipleAccounts', [list.map(x => x.address), { encoding: 'jsonParsed' }]) : { value: [] };
+  const t = await token(m).catch(() => null);
+  const top = list.map((x, i) => { const inf = infos.value && infos.value[i]; const owner = inf && inf.data && inf.data.parsed && inf.data.parsed.info && inf.data.parsed.info.owner || null; const amt = +x.uiAmount || 0;
+    return { acct: x.address, owner, amt, pct: supply ? amt / supply * 100 : null, wallet: owner ? onCurve(owner) : null, dev: !!(t && t.dev && owner === t.dev) }; });
+  return { mint: m, sym: t && t.sym || null, dev: t && t.dev || null, supply, top };
+}
+
 // ------------------------------------------------------------------ http
 async function body(req) { if (req.body && typeof req.body === 'object') return req.body; let s = ''; for await (const c of req) s += c; try { return JSON.parse(s || '{}'); } catch { return {}; } }
 module.exports = async (req, res) => {
@@ -251,6 +262,7 @@ module.exports = async (req, res) => {
     if (a === 'sns') { need(isAddr(q.w), 'that is not a Solana address'); return send(200, await cached('sns:' + q.w, 300000, () => sns(q.w)), 120); }
     if (a === 'idx') return send(200, await index(), 10);
     if (a === 'trenches') return send(200, await trenches(String(q.tab || 'new')), 3);
+    if (a === 'holders') { need(isAddr(q.m), 'that is not a token address'); return send(200, await cached('hold:' + q.m, 20000, () => holders(q.m)), 15); }
     if (a === 'token') { need(isAddr(q.m), 'that is not a token address'); const t = await cached('tok:' + q.m, 15000, () => token(q.m)); need(t, 'Jupiter does not know that token'); return send(200, t, 10); }
     if (a === 'dev') { need(isAddr(q.w), 'that is not a Solana address'); return send(200, await cached('dev:' + q.w, 120000, () => dev(q.w)), 60); }
     if (a === 'coin') { const ca = process.env.PR1V_CA || null, x = process.env.PR1V_X || null; if (!ca) return send(200, { ca: null, x }, 30); const m = await cached('coin', 20000, () => tokenInfo([ca])); return send(200, { ca, x, ...(m[ca] || {}) }, 15); }
