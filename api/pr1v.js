@@ -74,23 +74,27 @@ async function tokenInfo(mints) {
 }
 
 async function sns(w) {
-  const base = 'https://sns-sdk-proxy.bonfida.workers.dev';
+  const base = 'https://sns-api.bonfida.com/v2/user';
   const res = { fav: null, names: [], ok: false };
-  try { const f = await jget(`${base}/favorite-domain/${w}`, 6000); res.ok = true; if (f && f.s === 'ok' && f.result) res.fav = f.result.reverse ? f.result.reverse + '.sol' : null; } catch { }
-  try { const d = await jget(`${base}/domains/${w}`, 6000); res.ok = true; if (d && d.s === 'ok' && Array.isArray(d.result)) { const keys = d.result.map(x => x.key || x).filter(Boolean).slice(0, 12);
-      if (keys.length) { try { const rv = await jget(`${base}/reverse-lookup-batch/${keys.join(',')}`, 6000); if (rv && rv.s === 'ok' && Array.isArray(rv.result)) res.names = rv.result.filter(Boolean).map(n => n + '.sol'); } catch { } if (!res.names.length) res.names = d.result.map(x => x.domain || x.name).filter(Boolean).map(n => /\.sol$/.test(n) ? n : n + '.sol'); } } } catch { }
+  const pick = (j, many) => { if (!j || typeof j !== 'object') return many ? [] : null; let v = j[w] ?? j.result ?? null; if (v && typeof v === 'object' && !Array.isArray(v)) v = v[w] ?? Object.values(v)[0]; if (many) return (Array.isArray(v) ? v : v ? [v] : []).map(x => typeof x === 'string' ? x : x && (x.domain || x.name)).filter(Boolean); return Array.isArray(v) ? v[0] || null : typeof v === 'string' ? v : v && (v.domain || v.name) || null; };
+  const [f, d] = await Promise.all([jget(`${base}/fav-domains/${w}`, 6000).catch(() => undefined), jget(`${base}/domains/${w}`, 6000).catch(() => undefined)]);
+  if (f !== undefined || d !== undefined) res.ok = true;
+  const fav = pick(f, false); if (fav) res.fav = /\.sol$/.test(fav) ? fav : fav + '.sol';
+  res.names = pick(d, true).slice(0, 12).map(n => /\.sol$/.test(n) ? n : n + '.sol');
   if (res.fav && !res.names.includes(res.fav)) res.names.unshift(res.fav);
   return res;
 }
 
 // ------------------------------------------------------------------ account
 async function acct(w) {
-  const [bal, info, t1, t2] = await rpcMany([
-    ['getBalance', [w, { commitment: 'confirmed' }]],
-    ['getAccountInfo', [w, { encoding: 'base64', dataSlice: { offset: 0, length: 0 } }]],
-    ['getTokenAccountsByOwner', [w, { programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' }, { encoding: 'jsonParsed' }]],
-    ['getTokenAccountsByOwner', [w, { programId: 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb' }, { encoding: 'jsonParsed' }]],
+  const one = (m, p) => rpc(m, p).catch(() => null);
+  const [bal, info, t1, t2] = await Promise.all([
+    one('getBalance', [w, { commitment: 'confirmed' }]),
+    one('getAccountInfo', [w, { encoding: 'base64', dataSlice: { offset: 0, length: 0 } }]),
+    one('getTokenAccountsByOwner', [w, { programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' }, { encoding: 'jsonParsed' }]),
+    one('getTokenAccountsByOwner', [w, { programId: 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb' }, { encoding: 'jsonParsed' }]),
   ]);
+  if (!bal && !info && !t1 && !t2) throw new Error('the Solana RPC did not answer. try again in a moment');
   const accts = [...((t1 && t1.value) || []), ...((t2 && t2.value) || [])];
   const held = new Map(); let empty = 0;
   for (const a of accts) { const i = a.account.data.parsed && a.account.data.parsed.info; if (!i) continue; const amt = +i.tokenAmount.uiAmount || 0; if (!amt) { empty++; continue; } held.set(i.mint, (held.get(i.mint) || 0) + amt); }
@@ -102,7 +106,7 @@ async function acct(w) {
   const sol = (bal && bal.value || 0) / 1e9; const v = info && info.value;
   const names = await sns(w);
   return { w, sol, solUsd, usd: (solUsd ? sol * solUsd : 0) + tokens.reduce((s, t) => s + (t.usd || 0), 0), exists: !!v || sol > 0 || accts.length > 0, program: !!(v && v.executable), owner: v ? v.owner : null, onCurve: onCurve(w),
-    tokens: tokens.slice(0, 40), tokenCount: tokens.length, emptyAccounts: empty, nftish: tokens.filter(t => t.amount === 1 && !t.usd).length, names };
+    tokens: tokens.slice(0, 40), tokenCount: tokens.length, tokensRead: !!(t1 || t2), emptyAccounts: empty, nftish: tokens.filter(t => t.amount === 1 && !t.usd).length, names };
 }
 
 // ------------------------------------------------------------------ history
