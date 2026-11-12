@@ -136,6 +136,7 @@ function renderScan(R, S) {
   hd(`opsec · ${short(R.w)}`);
   html(`<div class="score"><span class="${col}">${bar(S.score)}</span>  <b>${S.score}/100</b>  <span class="${col}">${S.grade}</span></div>`);
   html(`<div class="tbl"><span>seen</span><span>${R.total ? `${R.total >= 5000 ? '5,000+' : nf(R.total)} transactions${R.first ? ' since ' + day(R.first) : ''} · last ${ago(R.last)} ago` : 'no transactions yet'}</span><span>holds</span><span>${nf(A.sol, 3)} SOL · ${A.tokenCount} token${A.tokenCount === 1 ? '' : 's'}${A.nftish ? ` · ${A.nftish} collectible${A.nftish > 1 ? 's' : ''}` : ''} · ${usd(A.usd)} visible</span>${A.onCurve ? '' : '<span>type</span><span class="amb">off-curve address (owned by a program, not a person)</span>'}</div>`);
+  html(walletMap(R));
   if (S.L.length) { ln('leaks', 'hd'); for (const l of S.L) html(`<div class="leak"><span class="sev">−${l.p}</span><span class="k">${l.k}</span><span>${l.h}</span>${l.f ? `<span class="fix">${l.f}</span>` : ''}</div>`); }
   if (S.G.length) { ln('fine', 'hd'); for (const g of S.G) html(`<div class="leak good"><span class="sev">ok</span><span class="k"></span><span class="dim">${g}</span></div>`); }
   const C = R.clock; if (C && C.n) { ln('clock · UTC', 'hd'); pre(`<span class="ink">${spark(C.h, 2)}</span>\n<span class="faint">00    04    08    12    16    20    23</span>\n${C.conf ? `<span class="dim">quiet ${String(C.q0).padStart(2, '0')}–${String(C.q1).padStart(2, '0')} UTC → ${C.tz}</span>` : '<span class="dim">no clear quiet hours</span>'}`); }
@@ -357,11 +358,11 @@ const serial = c => c.audit && c.audit.devMints > 20;
 async function trPoll(force) {
   if (TR.paused && !force) return; if (document.hidden && !force) return;
   try { const r = await api('trenches', { tab: TR.tab }); TR.err = null; TR.last = Date.now();
-    for (const c of r.coins) if (!TR.seen.has(c.mint)) TR.seen.set(c.mint, { ...c, at: Date.now() });
+    let fresh = 0; for (const c of r.coins) if (!TR.seen.has(c.mint)) { TR.seen.set(c.mint, { ...c, at: Date.now() }); fresh++; } if (fresh && TR.ping && TR.last0) ping(); TR.last0 = true;
     if (r.tab === TR.tab) TR.coins = TR.tab === 'new' ? [...TR.seen.values()].sort((a, b) => Date.parse(b.created || 0) - Date.parse(a.created || 0)).slice(0, 80) : r.coins;
     if (TR.tab !== 'new') { const n = await api('trenches', { tab: 'new' }).catch(() => null); if (n) for (const c of n.coins) if (!TR.seen.has(c.mint)) TR.seen.set(c.mint, { ...c, at: Date.now() }); }
   } catch (e) { TR.err = e.message; }
-  trRender(); pulseW();
+  trRender(); pulseW(); tapeW();
 }
 function trStats() { const L = [...TR.seen.values()], mins = Math.max(1, (Date.now() - TR.started) / 60000), A = L.filter(c => c.audit && c.audit.devMints != null);
   const ser = A.filter(serial).length, first = A.filter(c => c.audit.devMints <= 1).length, dh = L.map(c => c.audit && c.audit.devPct).filter(v => v != null).sort((a, b) => a - b);
@@ -371,6 +372,7 @@ function trRender() {
   const S = trStats(); $('#trN').textContent = S.n ? ' ' + S.n : '';
   $('#trStat').innerHTML = TR.err ? `<span class="red">${esc(TR.err)}</span>` : `<span><b class="ink">●</b> live from pump.fun · updated ${TR.last ? Math.max(0, Math.round((Date.now() - TR.last) / 1000)) + 's ago' : '…'}</span><span>seen <b>${S.n}</b> launches · <b>${nf(S.rate, 1)}</b>/min</span>${S.ser != null ? `<span>serial devs <b class="red">${Math.round(S.ser * 100)}%</b></span><span>first-time devs <b class="ink">${Math.round(S.first * 100)}%</b></span>` : ''}${S.med != null ? `<span>median dev bag <b>${nf(S.med, 1)}%</b></span>` : ''}`;
   let C = TR.coins.filter(c => !q || [c.sym, c.name, c.mint, c.dev].some(v => v && String(v).toLowerCase().includes(q))); if (hide) C = C.filter(c => !serial(c));
+  if (TR.sort) C = C.slice().sort((a, b) => (sortVal(a, TR.sort) - sortVal(b, TR.sort)) * (TR.asc ? 1 : -1));
   if (!C.length) { list.innerHTML = `<p class="dim pad">${TR.coins.length ? 'nothing matches that filter.' : TR.err ? 'pump.fun data is not answering right now. retrying…' : 'waiting for the first launches…'}</p>`; return; }
   const keep = list.scrollTop;
   list.innerHTML = C.map(c => { const f5 = c.s5 || {}, tot = (f5.bv || 0) + (f5.sv || 0), bp = tot ? f5.bv / tot * 100 : 50, fresh = !TR.shown.has(c.mint) && TR.shown.size ? ' fresh' : '';
@@ -463,6 +465,64 @@ function sbar() { const el = $('#sbar'); if (!el) return; const term = !$('#pane
   el.innerHTML = `<span><b>[pr1v]</b></span><span class="sw ${term ? 'on' : ''}">0:term${term ? '*' : ''}</span><span class="sw ${term ? '' : 'on'}">1:trenches${term ? '' : '*'}</span><span class="sp"></span>
     <span class="${NET.ok ? 'ok' : 'bad'}">● mainnet</span><span class="hide-s">rpc ${NET.ms ? Math.round(NET.ms) + 'ms' : '—'}</span><span class="hide-s">launches ${S.n}</span><span class="hide-s">watching ${WATCH.length}</span><span>${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} UTC${off >= 0 ? '+' : ''}${off}</span>`; }
 setInterval(sbar, 1000);
+
+// ------------------------------------------------------------ wallet map: the scan as a picture
+function walletMap(R) {
+  const W = 680, H = 270, cx = 340, cy = 135, F = R.trace && R.trace[0], F2 = R.trace && R.trace[1], A = R.acct, names = (A.names && A.names.names) || [];
+  const L = R.links.slice(0, 6), parts = [];
+  const node = (x, y, r, fill, stroke, label, sub, run) => `<g class="n" ${run ? `data-run="${run}"` : ''}><circle cx="${x}" cy="${y}" r="${r}" style="fill:${fill};stroke:${stroke};stroke-width:1.5"/><text x="${x}" y="${y + r + 15}" text-anchor="middle">${esc(label)}</text>${sub ? `<text class="d" x="${x}" y="${y + r + 29}" text-anchor="middle">${esc(sub)}</text>` : ''}</g>`;
+  if (F && F.funder) { const busy = F2 && F2.busy, col = busy ? 'var(--amber)' : 'var(--red)';
+    parts.push(`<line x1="118" y1="${cy}" x2="${cx - 34}" y2="${cy}" style="stroke:${col};stroke-width:2;stroke-dasharray:5 5"/><polygon points="${cx - 36},${cy - 5} ${cx - 26},${cy} ${cx - 36},${cy + 5}" style="fill:${col}"/>`);
+    parts.push(`<text class="d" x="${(118 + cx - 34) / 2}" y="${cy - 9}" text-anchor="middle">${F.amt != null ? nf(F.amt, 2) + ' SOL · first funding' : 'first funding'}</text>`);
+    parts.push(node(92, cy, 22, 'var(--win)', col, short(F.funder), busy ? 'busy: exchange?' : 'personal wallet', 'opsec ' + F.funder)); }
+  else parts.push(`<text class="d" x="92" y="${cy + 4}" text-anchor="middle">${F && F.busy ? 'funding too deep' : 'no funder found'}</text>`);
+  L.forEach((l, i) => { const a = (L.length === 1 ? 0 : -50 + i * (100 / (L.length - 1))) * Math.PI / 180, x = cx + Math.cos(a) * 215, y = cy + Math.sin(a) * 100;
+    parts.push(`<line x1="${cx + 30}" y1="${cy}" x2="${x - 16}" y2="${y}" style="stroke:var(--red);stroke-opacity:.55;stroke-width:${1 + Math.min(4, l.n)}"/>`);
+    parts.push(node(x, y, 14, 'var(--win)', 'var(--red)', short(l.a), l.n + '× ' + (l.out && l.inn ? '⇄' : l.out ? '→' : '←'), 'opsec ' + l.a)); });
+  if (!L.length) parts.push(`<text class="d" x="${cx + 200}" y="${cy + 4}" text-anchor="middle">no direct transfers</text>`);
+  if (names.length) parts.push(`<rect x="${cx - 70}" y="14" width="140" height="24" rx="12" style="fill:var(--blk)"/><text x="${cx}" y="30" text-anchor="middle" style="fill:var(--win)">${esc(names[0])}</text><line x1="${cx}" y1="38" x2="${cx}" y2="${cy - 32}" style="stroke:var(--blk);stroke-width:1.5"/>`);
+  const C = R.clock; if (C && C.conf) parts.push(`<text class="d" x="${cx}" y="${H - 14}" text-anchor="middle">awake ${String(C.q1).padStart(2, '0')}–${String(C.q0).padStart(2, '0')} UTC · ${C.tz}</text>`);
+  if (R.apps.length) parts.push(`<text class="d" x="16" y="24">${esc(R.apps.slice(0, 3).join(' · '))}</text>`);
+  parts.push(`<circle cx="${cx}" cy="${cy}" r="30" style="fill:var(--blk)"/><text x="${cx}" y="${cy + 4}" text-anchor="middle" style="fill:var(--win)">${short(R.w).replace('…', '·')}</text><text class="d" x="${cx}" y="${cy + 48}" text-anchor="middle">${usd(A.usd)} visible</text>`);
+  return `<div class="map"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="wallet map">${parts.join('')}</svg></div>`;
+}
+
+// ------------------------------------------------------------ live tape, ping, sorting
+let tapeKey = '', tapeAt = 0;
+function tapeW() { const el = $('#tapeIn'); if (!el) return; const L = [...TR.seen.values()].sort((a, b) => Date.parse(b.created || 0) - Date.parse(a.created || 0)).slice(0, 22); const key = L.map(c => c.mint).join();
+  if (!L.length || key === tapeKey || Date.now() - tapeAt < 20000 && tapeKey) return; tapeKey = key; tapeAt = Date.now();
+  const one = L.map(c => { const a = c.audit || {}, k = a.devMints > 20 ? 'r' : a.devMints != null && a.devMints <= 1 ? 'g' : ''; return `<button data-run="dev ${c.mint}">${img(c)}<b>$${esc(c.sym || '?')}</b>${usd(c.mcap)}<i class="${k}"></i>${age(c.created)}</button>`; }).join('');
+  el.innerHTML = one + one; }
+let pingCtx = null; function ping() { try { pingCtx = pingCtx || new (window.AudioContext || window.webkitAudioContext)(); const t = pingCtx.currentTime, o = pingCtx.createOscillator(), g = pingCtx.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(1320, t); o.frequency.exponentialRampToValueAtTime(880, t + .12); g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.06, t + .01); g.gain.exponentialRampToValueAtTime(.0001, t + .35); o.connect(g); g.connect(pingCtx.destination); o.start(t); o.stop(t + .4); } catch { } }
+$('#trPing').onclick = () => { TR.ping = !TR.ping; $('#trPing').textContent = TR.ping ? 'ping on' : 'ping off'; $('#trPing').setAttribute('aria-pressed', TR.ping); if (TR.ping) ping(); };
+TR.sort = null; TR.asc = false;
+$$('.thead [data-sort]').forEach(b => b.onclick = () => { const k = b.dataset.sort; if (TR.sort === k) TR.asc = !TR.asc; else { TR.sort = k; TR.asc = k === 'age' ? false : false; } $$('.thead [data-sort]').forEach(x => { x.classList.toggle('on', x.dataset.sort === TR.sort); x.classList.toggle('asc', x.dataset.sort === TR.sort && TR.asc); }); trRender(); });
+const sortVal = (c, k) => k === 'age' ? Date.parse(c.created || 0) : k === 'mcap' ? c.mcap || 0 : k === 'holders' ? c.holders || 0 : k === 'flow' ? (c.s5 ? c.s5.bv + c.s5.sv : 0) : k === 'dev' ? (c.audit && c.audit.devMints != null ? c.audit.devMints : -1) : 0;
+
+// ------------------------------------------------------------ command palette (⌘K, ctrl+K or /)
+let PI = 0, PITEMS = [];
+function palItems(q) { q = q.trim(); const ql = q.toLowerCase(), out = [];
+  if (isAddr(q)) { out.push(['wallet or coin', [['opsec ' + q, 'how doxxed is it'], ['dev ' + q, 'who launched it'], ['trace ' + q, 'follow the first SOL'], ['holders ' + q, 'top holders'], ['watch ' + q, 'ping me when it moves'], ['bags ' + q, 'what it holds']].map(([c, d]) => ({ run: c, label: c.split(' ')[0] + ' ' + short(q), sub: d, icon: '›' }))]); }
+  const cmds = HELP.filter(([c, d]) => !ql || (c + ' ' + d).toLowerCase().includes(ql)).slice(0, 9).map(([c, d]) => ({ [c.includes('<') ? 'fill' : 'run']: c.includes('<') ? c.split(' ')[0] + ' ' : c.split(' ')[0], label: c, sub: d, icon: '⌘' }));
+  if (cmds.length) out.push(['commands', cmds]);
+  const coins = [...TR.seen.values()].filter(c => !ql || [c.sym, c.name].some(v => v && v.toLowerCase().includes(ql))).sort((a, b) => Date.parse(b.created || 0) - Date.parse(a.created || 0)).slice(0, 6).map(c => ({ run: 'dev ' + c.mint, label: '$' + (c.sym || '?') + ' · ' + (c.name || ''), sub: usd(c.mcap) + ' · ' + age(c.created), img: c }));
+  if (coins.length) out.push(['live launches', coins]);
+  const seenW = [...new Set(HIST.slice().reverse().flatMap(h => h.split(/\s+/)).filter(isAddr))].filter(a => !ql || a.toLowerCase().includes(ql)).slice(0, 5).map(a => ({ run: 'opsec ' + a, label: short(a), sub: 'recent', icon: '↺' }));
+  if (seenW.length) out.push(['recent wallets', seenW]);
+  const wt = WATCH.filter(x => !ql || (x.w + (x.label || '')).toLowerCase().includes(ql)).map(x => ({ run: 'opsec ' + x.w, label: (x.label ? x.label + ' · ' : '') + short(x.w), sub: 'watching', icon: '◉' }));
+  if (wt.length) out.push(['watching', wt]);
+  return out; }
+function palRender() { const G = palItems($('#palI').value); PITEMS = G.flatMap(g => g[1]); PI = Math.min(PI, Math.max(0, PITEMS.length - 1)); let k = 0;
+  $('#palL').innerHTML = G.map(([g, L]) => `<div class="g">${g}</div>` + L.map(it => `<button data-pi="${k}" class="${k++ === PI ? 'on' : ''}">${it.img ? img(it.img) : `<span>${it.icon}</span>`}<b>${esc(it.label)}</b><span>${esc(it.sub || '')}</span></button>`).join('')).join('') || '<div class="g">nothing found</div>';
+  const on = $('#palL .on'); on && on.scrollIntoView({ block: 'nearest' }); }
+function palOpen() { $('#pal').hidden = false; $('#palI').value = ''; PI = 0; palRender(); setTimeout(() => $('#palI').focus(), 10); }
+function palClose() { $('#pal').hidden = true; }
+function palGo(i) { const it = PITEMS[i]; if (!it) return; palClose(); if (it.run) run(it.run); else { if ($('#paneTerm').hidden) showTab('term'); IN.value = it.fill; IN.focus(); } }
+$('#kbtn').onclick = palOpen; $('#palI').addEventListener('input', () => { PI = 0; palRender(); });
+$('#palI').addEventListener('keydown', e => { if (e.key === 'ArrowDown') { e.preventDefault(); PI = Math.min(PITEMS.length - 1, PI + 1); palRender(); } else if (e.key === 'ArrowUp') { e.preventDefault(); PI = Math.max(0, PI - 1); palRender(); } else if (e.key === 'Enter') { e.preventDefault(); palGo(PI); } else if (e.key === 'Escape') palClose(); });
+$('#palL').addEventListener('click', e => { const b = e.target.closest('[data-pi]'); if (b) palGo(+b.dataset.pi); });
+$('#pal').addEventListener('click', e => { if (e.target.id === 'pal') palClose(); });
+document.addEventListener('keydown', e => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); $('#pal').hidden ? palOpen() : palClose(); } else if (e.key === '/' && !/INPUT|TEXTAREA/.test(document.activeElement.tagName) && document.body.classList.contains('ready')) { e.preventDefault(); palOpen(); } else if (e.key === 'Escape' && !$('#pal').hidden) palClose(); });
 
 // ------------------------------------------------------------ runner
 const ALIAS = { top: 'holders', bundle: 'holders', follow: 'watch', track: 'watch', trench: 'trenches', live: 'trenches', pump: 'trenches', who: 'dev', deployer: 'dev', creator: 'dev', scan: 'opsec', score: 'opsec', doxx: 'opsec', '?': 'help', man: 'help', funding: 'trace', names: 'name', sns: 'name', hours: 'clock', tz: 'clock', balance: 'bags', fingerprint: 'whoami', inbox: 'drop', cls: 'clear', ca: 'ca' };
