@@ -14,7 +14,7 @@
 <meta name="theme-color" content="#ececee">
 <link rel="icon" href="/favicon.png">
 <link rel="preload" href="/assets/fonts/jbmono.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/assets/pr1v.css?v=4">
+<link rel="stylesheet" href="/assets/pr1v.css?v=5">
 </head>
 <body>
 <canvas id="intro" aria-hidden="true"></canvas>
@@ -42,12 +42,14 @@
     </div>
     <div class="br">
       <span class="tz" id="tz" title="what your browser clock tells every site"></span>
+      <button class="kbtn" id="kbtn" aria-label="open the command palette"><span>search</span><kbd>⌘K</kbd></button>
       <button class="ic" id="theme" aria-label="switch theme"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9z" fill="currentColor"/></svg></button>
       <button class="wal" id="wallet">connect</button>
       <button class="ic menu-btn" id="menuBtn" aria-label="open the menu"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2"/></svg></button>
     </div>
   </header>
 
+  <div class="tape" id="tape" aria-label="latest pump.fun launches"><div class="tape-in" id="tapeIn"></div></div>
   <main class="desk">
     <section class="win term" id="term">
       <div class="tbar tabs"><button class="tab on" data-tab="term"><span class="sq"></span><span id="ttl">pr1v — anon — 160×24</span></button><button class="tab" data-tab="trench"><i class="live"></i>trenches<b id="trN"></b></button><span class="ctl"><i>–</i><i>□</i><i>×</i></span></div>
@@ -79,10 +81,11 @@
           <div class="seg" id="trTabs"><button class="on" data-t="new">new</button><button data-t="hot">hot 5m</button><button data-t="organic">organic 5m</button><button data-t="traded">most traded</button></div>
           <input id="trQ" placeholder="filter name, ticker or dev" spellcheck="false" autocomplete="off">
           <label class="tg"><input type="checkbox" id="trSerial"><span>hide serial devs</span></label>
+          <button class="pz" id="trPing" aria-pressed="false" title="a soft ping for every new launch">ping off</button>
           <button class="pz" id="trPause" aria-pressed="false">pause</button>
         </div>
         <div class="tstat" id="trStat"></div>
-        <div class="thead"><span></span><span>coin</span><span>mcap</span><span>holders</span><span>5m flow</span><span>dev</span><span></span></div>
+        <div class="thead"><span></span><button data-sort="age">coin</button><button data-sort="mcap">mcap</button><button data-sort="holders">holders</button><button data-sort="flow">5m flow</button><button data-sort="dev">dev</button><span></span></div>
         <div class="tlist" id="trList"><p class="dim pad">reading pump.fun…</p></div>
       </div>
       <div class="sbar" id="sbar"></div>
@@ -124,9 +127,10 @@
     </aside>
   </main>
 </div>
+<div id="pal" hidden><div class="pal-box" role="dialog" aria-label="command palette"><input id="palI" placeholder="type a command, a wallet or a coin…" spellcheck="false" autocomplete="off"><div id="palL" class="pal-l"></div><div class="pal-f"><span>↑↓ move</span><span>↵ run</span><span>esc close</span></div></div></div>
 <div id="toast" role="status"></div>
 <script src="/assets/nacl.min.js" defer></script>
-<script src="/assets/term.js?v=5" defer></script>
+<script src="/assets/term.js?v=6" defer></script>
 <script type="module" src="/assets/intro.js?v=4"></script>
 </body>
 </html>
