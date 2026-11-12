@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -11,10 +11,10 @@
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="https://pr1v.vercel.app/og.png">
-<meta name="theme-color" content="#ececee">
+<meta name="theme-color" content="#0b0b0d">
 <link rel="icon" href="/favicon.png">
 <link rel="preload" href="/assets/fonts/jbmono.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/assets/pr1v.css?v=5">
+<link rel="stylesheet" href="/assets/pr1v.css?v=6">
 </head>
 <body>
 <canvas id="intro" aria-hidden="true"></canvas>
@@ -25,7 +25,7 @@
 <div id="os">
   <header class="bar">
     <div class="bl">
-      <button class="brand" data-run="help" aria-label="pr1v home"><img src="/icon.png" alt=""><b>pr1v</b></button>
+      <button class="brand" data-run="help" aria-label="pr1v home" data-tip="pr1v · show every command"><img src="/icon.png" alt=""><b>pr1v</b></button>
       <nav class="menu" id="menu">
         <button data-fill="opsec ">opsec</button>
         <button data-fill="trace ">trace</button>
@@ -41,10 +41,10 @@
       </nav>
     </div>
     <div class="br">
-      <span class="tz" id="tz" title="what your browser clock tells every site"></span>
-      <button class="kbtn" id="kbtn" aria-label="open the command palette"><span>search</span><kbd>⌘K</kbd></button>
-      <button class="ic" id="theme" aria-label="switch theme"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9z" fill="currentColor"/></svg></button>
-      <button class="wal" id="wallet">connect</button>
+      <span class="tz" id="tz" data-tip="your browser tells every site this clock and timezone"></span>
+      <button class="kbtn" id="kbtn" aria-label="open the command palette" data-tip="search commands, wallets, coins and live launches · ⌘K or /"><span>search</span><kbd>⌘K</kbd></button>
+      <button class="ic" id="theme" aria-label="switch theme" data-tip="switch between the black terminal and the light one"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9z" fill="currentColor"/></svg></button>
+      <button class="wal" id="wallet" data-tip="connect Phantom, Solflare or Backpack. only needed for drop and “me”. pr1v never sees your keys">connect</button>
       <button class="ic menu-btn" id="menuBtn" aria-label="open the menu"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2"/></svg></button>
     </div>
   </header>
@@ -52,13 +52,13 @@
   <div class="tape" id="tape" aria-label="latest pump.fun launches"><div class="tape-in" id="tapeIn"></div></div>
   <main class="desk">
     <section class="win term" id="term">
-      <div class="tbar tabs"><button class="tab on" data-tab="term"><span class="sq"></span><span id="ttl">pr1v — anon — 160×24</span></button><button class="tab" data-tab="trench"><i class="live"></i>trenches<b id="trN"></b></button><span class="ctl"><i>–</i><i>□</i><i>×</i></span></div>
+      <div class="tbar tabs"><button class="tab on" data-tab="term" data-tip="the terminal: type or click any command"><span class="sq"></span><span id="ttl">pr1v — anon — 160×24</span></button><button class="tab" data-tab="trench" data-tip="live pump.fun launches, with what is public about each dev"><i class="live"></i>trenches<b id="trN"></b></button><span class="ctl"><button data-win="min" data-tip="minimize: fold the terminal down to its title bar">–</button><button data-win="max" data-tip="maximize: hide the side panel and give the terminal the full width">□</button><button data-win="close" data-tip="close: end this session and start a fresh one">×</button></span></div>
       <div class="pane" id="paneTerm">
         <div class="out" id="out" role="log" aria-live="polite"></div>
         <form class="prompt" id="cmd" autocomplete="off">
           <label for="in" class="ps"><span class="u">anon@laptop</span> ~ %</label>
           <input id="in" name="in" spellcheck="false" autocapitalize="off" autocorrect="off" enterkeyhint="go" aria-label="type a command">
-          <button type="submit" class="go" aria-label="run">↵</button>
+          <button type="submit" class="go" aria-label="run" data-tip="run the command (enter)">↵</button>
         </form>
         <div class="chips" id="chips">
           <button data-fill="opsec ">opsec &lt;wallet&gt;</button>
@@ -78,14 +78,14 @@
       </div>
       <div class="pane trench" id="paneTrench" hidden>
         <div class="th">
-          <div class="seg" id="trTabs"><button class="on" data-t="new">new</button><button data-t="hot">hot 5m</button><button data-t="organic">organic 5m</button><button data-t="traded">most traded</button></div>
+          <div class="seg" id="trTabs"><button class="on" data-t="new" data-tip="every new pump.fun coin, newest first, refreshed every 5 seconds">new</button><button data-t="hot" data-tip="trending on Jupiter over the last 5 minutes">hot 5m</button><button data-t="organic" data-tip="ranked by Jupiter’s organic score: real traders, not bots">organic 5m</button><button data-t="traded" data-tip="most traded pump.fun coins in the last 5 minutes">most traded</button></div>
           <input id="trQ" placeholder="filter name, ticker or dev" spellcheck="false" autocomplete="off">
-          <label class="tg"><input type="checkbox" id="trSerial"><span>hide serial devs</span></label>
-          <button class="pz" id="trPing" aria-pressed="false" title="a soft ping for every new launch">ping off</button>
-          <button class="pz" id="trPause" aria-pressed="false">pause</button>
+          <label class="tg" data-tip="hide coins from devs who launched more than 20 coins"><input type="checkbox" id="trSerial"><span>hide serial devs</span></label>
+          <button class="pz" id="trPing" aria-pressed="false" data-tip="a soft ping for every new launch">ping off</button>
+          <button class="pz" id="trPause" aria-pressed="false" data-tip="freeze the list so rows stop moving while you read">pause</button>
         </div>
         <div class="tstat" id="trStat"></div>
-        <div class="thead"><span></span><button data-sort="age">coin</button><button data-sort="mcap">mcap</button><button data-sort="holders">holders</button><button data-sort="flow">5m flow</button><button data-sort="dev">dev</button><span></span></div>
+        <div class="thead"><span></span><button data-sort="age" data-tip="sort by age">coin</button><button data-sort="mcap" data-tip="sort by market cap">mcap</button><button data-sort="holders" data-tip="sort by holder count">holders</button><button data-sort="flow" data-tip="sort by 5-minute volume. green is buys, red is sells">5m flow</button><button data-sort="dev" data-tip="sort by how many coins the dev has launched">dev</button><span></span></div>
         <div class="tlist" id="trList"><p class="dim pad">reading pump.fun…</p></div>
       </div>
       <div class="sbar" id="sbar"></div>
@@ -93,7 +93,7 @@
 
     <aside class="side" id="side">
       <section class="win w">
-        <div class="tbar"><span class="sq"></span><span class="ttl">opsec.app</span></div>
+        <div class="tbar"><span class="sq"></span><span class="ttl">opsec.app</span><button class="fold" data-fold aria-label="fold" data-tip="fold or unfold this panel">–</button></div>
         <form class="wb scan" id="scanF">
           <p class="lbl">how doxxed is a wallet?</p>
           <div class="row"><input id="scanI" placeholder="paste any Solana wallet" spellcheck="false" autocomplete="off"><button>scan</button></div>
@@ -101,36 +101,37 @@
         </form>
       </section>
       <section class="win w">
-        <div class="tbar"><span class="sq"></span><span class="ttl">watch</span></div>
+        <div class="tbar"><span class="sq"></span><span class="ttl">watch</span><button class="fold" data-fold aria-label="fold" data-tip="fold or unfold this panel">–</button></div>
         <div class="wb" id="watchW"></div>
       </section>
       <section class="win w">
-        <div class="tbar"><span class="sq"></span><span class="ttl">trenches · live</span><i class="live"></i></div>
+        <div class="tbar"><span class="sq"></span><span class="ttl">trenches · live</span><button class="fold" data-fold aria-label="fold" data-tip="fold or unfold this panel">–</button><i class="live"></i></div>
         <div class="wb" id="pulse"><p class="dim">reading pump.fun…</p></div>
       </section>
       <section class="win w">
-        <div class="tbar"><span class="sq"></span><span class="ttl">this browser</span></div>
+        <div class="tbar"><span class="sq"></span><span class="ttl">this browser</span><button class="fold" data-fold aria-label="fold" data-tip="fold or unfold this panel">–</button></div>
         <div class="wb" id="fp"></div>
       </section>
       <section class="win w">
-        <div class="tbar"><span class="sq"></span><span class="ttl">drop · sealed notes</span></div>
+        <div class="tbar"><span class="sq"></span><span class="ttl">drop · sealed notes</span><button class="fold" data-fold aria-label="fold" data-tip="fold or unfold this panel">–</button></div>
         <div class="wb" id="dropW"><p class="dim">reading the chain…</p></div>
       </section>
       <section class="win w" id="coinW" hidden>
-        <div class="tbar"><span class="sq"></span><span class="ttl">$PR1V</span></div>
+        <div class="tbar"><span class="sq"></span><span class="ttl">$PR1V</span><button class="fold" data-fold aria-label="fold" data-tip="fold or unfold this panel">–</button></div>
         <div class="wb" id="coinB"></div>
       </section>
       <section class="win w">
-        <div class="tbar"><span class="sq"></span><span class="ttl">checklist</span></div>
+        <div class="tbar"><span class="sq"></span><span class="ttl">checklist</span><button class="fold" data-fold aria-label="fold" data-tip="fold or unfold this panel">–</button></div>
         <div class="wb" id="todo"></div>
       </section>
     </aside>
   </main>
 </div>
 <div id="pal" hidden><div class="pal-box" role="dialog" aria-label="command palette"><input id="palI" placeholder="type a command, a wallet or a coin…" spellcheck="false" autocomplete="off"><div id="palL" class="pal-l"></div><div class="pal-f"><span>↑↓ move</span><span>↵ run</span><span>esc close</span></div></div></div>
+<div id="tip" role="tooltip"></div>
 <div id="toast" role="status"></div>
 <script src="/assets/nacl.min.js" defer></script>
-<script src="/assets/term.js?v=6" defer></script>
-<script type="module" src="/assets/intro.js?v=4"></script>
+<script src="/assets/term.js?v=7" defer></script>
+<script type="module" src="/assets/intro.js?v=5"></script>
 </body>
 </html>
