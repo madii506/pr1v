@@ -15,6 +15,7 @@ const scan = a => `https://solscan.io/account/${a}`, txl = s => `https://solscan
 const store = { get(k, d) { try { const v = localStorage.getItem('pr1v.' + k); return v == null ? d : JSON.parse(v); } catch { return d; } }, set(k, v) { try { localStorage.setItem('pr1v.' + k, JSON.stringify(v)); } catch { } } };
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+const NET = { ms: 0, ok: true, calls: 0 };
 let WALLET = null, BUSY = false, CANCEL = false, LAST = null, KEYS = null, IDX = null;
 const HIST = store.get('hist', []); let HI = HIST.length;
 
@@ -41,7 +42,8 @@ const bar = (v, n = 20) => '█'.repeat(Math.round(v / 100 * n)) + '░'.repeat(
 // ------------------------------------------------------------ api + wallet
 async function api(a, q = {}, body) {
   const u = '/api/pr1v?a=' + a + (Object.keys(q).length ? '&' + new URLSearchParams(q) : '');
-  let r; try { r = await fetch(u, body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) } : {}); } catch { throw new Error('no connection to pr1v'); }
+  let r; const t0 = performance.now(); try { r = await fetch(u, body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) } : {}); } catch { NET.ok = false; throw new Error('no connection to pr1v'); }
+  const ms = performance.now() - t0; NET.ms = NET.ms ? NET.ms * .7 + ms * .3 : ms; NET.ok = r.ok || r.status < 500; NET.calls++;
   const j = await r.json().catch(() => ({ error: 'pr1v answered with something unreadable (' + r.status + ')' }));
   if (!r.ok || (j && j.error)) throw new Error(j.error || 'error ' + r.status); return j;
 }
@@ -52,7 +54,7 @@ async function connect(quiet) {
   try { const r = await p.connect(); WALLET = (r && r.publicKey || p.publicKey).toString(); KEYS = null; walletUI(); if (!quiet) ln(`connected ${addr(WALLET)}. pr1v never sees your keys: you sign everything in your wallet.`, 'ok'); return WALLET; }
   catch { ln('connection cancelled', 'dim'); return null; }
 }
-function walletUI() { const b = $('#wallet'); b.textContent = WALLET ? short(WALLET) : 'connect'; b.classList.toggle('on', !!WALLET); $('#ttl').textContent = `pr1v — ${WALLET ? short(WALLET) : 'anon'} — 160×24`; dropW(); }
+function walletUI() { setTimeout(watchW, 0); const b = $('#wallet'); b.textContent = WALLET ? short(WALLET) : 'connect'; b.classList.toggle('on', !!WALLET); $('#ttl').textContent = `pr1v — ${WALLET ? short(WALLET) : 'anon'} — 160×24`; dropW(); }
 async function disconnect() { const p = prov(); try { p && p.disconnect && await p.disconnect(); } catch { } WALLET = null; KEYS = null; walletUI(); ln('disconnected', 'dim'); }
 const b64u8 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0)), u8b64 = u => { let s = ''; for (const b of u) s += String.fromCharCode(b); return btoa(s); };
 async function signSend(b64) { const S = await web3(), tx = S.Transaction.from(b64u8(b64)), p = prov(); const s = await p.signTransaction(tx); return (await api('send', {}, { tx: u8b64(s.serialize()) })).sig; }
@@ -345,7 +347,7 @@ const TR = { tab: 'new', coins: [], seen: new Map(), shown: new Set(), open: nul
 const img = (c, cls = 'cimg') => c.icon ? `<img class="${cls}" src="${esc(c.icon)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.outerHTML='<span class=&quot;${cls}&quot;>${esc((c.sym || '?')[0])}</span>'">` : `<span class="${cls}">${esc((c.sym || '?')[0])}</span>`;
 const age = iso => { if (!iso) return '—'; const s = (Date.now() - Date.parse(iso)) / 1000; return s < 60 ? Math.max(1, Math.round(s)) + 's' : s < 3600 ? Math.round(s / 60) + 'm' : s < 86400 ? Math.round(s / 3600) + 'h' : Math.round(s / 86400) + 'd'; };
 const pc = v => v == null ? '' : `<span class="${v >= 0 ? 'ink' : 'red'}">${v >= 0 ? '+' : ''}${nf(v, Math.abs(v) < 10 ? 1 : 0)}%</span>`;
-function devBadges(c) { const a = c.audit || {}, B = [];
+function devBadges(c) { const a = c.audit || {}, B = []; const rep = c.dev ? [...TR.seen.values()].filter(x => x.dev === c.dev).length : 0; if (rep > 1) B.push(['r', `${rep} launches this session`]);
   if (a.devMints != null) { if (a.devMints > 100) B.push(['r', `factory · ${nf(a.devMints)} coins`]); else if (a.devMints > 20) B.push(['r', `serial · ${nf(a.devMints)} coins`]); else if (a.devMints <= 1) B.push(['g', 'first coin']); else B.push(['', `${a.devMints} coins`]); }
   if (a.devGrad) B.push(['g', `${a.devGrad} graduated`]);
   if (a.devPct != null && a.devPct >= .5) B.push([a.devPct >= 5 ? 'r' : 'a', `dev holds ${nf(a.devPct, 1)}%`]);
@@ -385,7 +387,7 @@ function trDetail(c) { const a = c.audit || {}, s5 = c.s5 || {}, h = c.s1h || {}
     <span>price</span><span>${c.usd != null ? '$' + (+c.usd).toPrecision(3) : '—'}</span><span>liquidity</span><span>${usd(c.liq)}</span>
     <span>5m</span><span>${(s5.b || 0)} buys · ${(s5.s || 0)} sells · ${s5.tr || 0} traders ${pc(s5.pc)}</span><span>1h</span><span>${usd(h.v)} volume · ${h.tr || 0} traders ${pc(h.pc)}</span>
     <span>dev coins</span><span>${a.devMints != null ? nf(a.devMints) + ' launched · ' + nf(a.devGrad || 0) + ' graduated' : '—'}</span><span>organic</span><span>${c.organicL ? esc(c.organicL) + (c.organic != null ? ' · ' + nf(c.organic, 0) : '') : '—'}</span></div>
-    <div class="btns"><button class="pri" data-run="dev ${c.mint}">who is the dev</button>${c.dev ? `<button data-run="trace ${c.dev}">trace dev funding</button><button data-run="opsec ${c.dev}">dev opsec</button>` : ''}<a href="https://pump.fun/coin/${c.mint}" target="_blank" rel="noopener">pump.fun ↗</a><a href="https://dexscreener.com/solana/${c.mint}" target="_blank" rel="noopener">chart ↗</a></div></div>`; }
+    <div class="btns"><button class="pri" data-run="dev ${c.mint}">who is the dev</button><button data-run="holders ${c.mint}">top holders</button>${c.dev ? `<button data-run="trace ${c.dev}">trace dev funding</button><button data-run="opsec ${c.dev}">dev opsec</button>` : ''}<a href="https://pump.fun/coin/${c.mint}" target="_blank" rel="noopener">pump.fun ↗</a><a href="https://dexscreener.com/solana/${c.mint}" target="_blank" rel="noopener">chart ↗</a></div></div>`; }
 function pulseW() { const el = $('#pulse'); if (!el) return; const S = trStats(), L = [...TR.seen.values()].sort((a, b) => Date.parse(b.created || 0) - Date.parse(a.created || 0)).slice(0, 4);
   el.innerHTML = `<div class="pulse"><div class="kv"><span>launches seen</span><span><b>${S.n}</b> · ${nf(S.rate, 1)}/min</span><span>serial devs</span><span>${S.ser != null ? Math.round(S.ser * 100) + '%' : '—'}</span></div>
     <div class="pfeed">${L.map(c => `<button data-run="dev ${c.mint}">${img(c)}<b>$${esc(c.sym || '?')} <span>${esc((c.name || '').slice(0, 18))}</span></b><span>${age(c.created)}</span></button>`).join('') || '<span class="dim">waiting for launches…</span>'}</div>
@@ -423,14 +425,47 @@ async function devCmd(arg) {
       <span>launched</span><span>${D.creates.length ? D.creates.map(c => `<a href="https://pump.fun/coin/${c.mint}" target="_blank" rel="noopener">$${esc(c.sym || short(c.mint))}</a>${c.mcap ? ' <span class="dim">' + usd(c.mcap) + '</span>' : ''}`).join(' · ') + ' <span class="dim">(last 40 txs)</span>' : '<span class="dim">no pump.fun creates in the last 40 txs</span>'}</span>
       <span>paid</span><span>${D.sends.length ? D.sends.map(x => `${addr(x.a)} <span class="dim">×${x.n}</span>`).join(' · ') + ' <span class="dim">direct transfers: likely its own wallets</span>' : '<span class="dim">no direct transfers out lately</span>'}</span>
       <span>apps</span><span>${D.apps.length ? D.apps.join(' · ') : '—'}</span></div>`);
-    html(`<div class="btns"><button class="pri" data-run="trace ${w}">trace funding</button><button data-run="opsec ${w}">full opsec</button>${D.sends[0] ? `<button data-run="link ${w} ${D.sends[0].a}">link to ${short(D.sends[0].a)}</button>` : ''}${coin ? `<a href="https://pump.fun/coin/${coin.mint}" target="_blank" rel="noopener">pump.fun ↗</a>` : ''}<a href="${scan(w)}" target="_blank" rel="noopener">solscan ↗</a></div>`);
+    html(`<div class="btns"><button class="pri" data-run="trace ${w}">trace funding</button><button data-run="opsec ${w}">full opsec</button>${coin ? `<button data-run="holders ${coin.mint}">top holders</button>` : ''}<button data-run="watch ${w} dev">watch dev</button>${D.sends[0] ? `<button data-run="link ${w} ${D.sends[0].a}">link to ${short(D.sends[0].a)}</button>` : ''}${coin ? `<a href="https://pump.fun/coin/${coin.mint}" target="_blank" rel="noopener">pump.fun ↗</a>` : ''}<a href="${scan(w)}" target="_blank" rel="noopener">solscan ↗</a></div>`);
     ln('every line is read from public chain data and Jupiter\'s token feed. a busy funder is a pattern, not a name.', 'dim');
   } catch (e) { sp.fail(e.message); }
 }
 
+// ------------------------------------------------------------ holders: who holds a coin, and how much of it the dev and the top wallets have
+async function holdersCmd(arg) {
+  if (!isAddr(arg)) return ln(`usage: ${cmd('holders ', 'holders <coin>')}. the 20 biggest holders, the dev, and how concentrated it is.`, 'dim');
+  const sp = spin('reading the biggest holders…');
+  try { const H = await api('holders', { m: arg }); sp.ok(`${H.top.length} biggest accounts`); hd(`holders · $${esc(H.sym || short(arg))}`);
+    const wal = H.top.filter(x => x.wallet), prog = H.top.filter(x => x.wallet === false), sum = a => a.reduce((s, x) => s + (x.pct || 0), 0);
+    const top10 = sum(wal.slice(0, 10)), devH = H.top.find(x => x.dev);
+    html(`<div class="tbl"><span>top 10 wallets</span><span><b class="${top10 >= 30 ? 'red' : top10 >= 15 ? 'amb' : 'ink'}">${nf(top10, 1)}%</b> of supply</span><span>programs</span><span>${prog.length ? nf(sum(prog), 1) + '% in ' + prog.length + ' program account' + (prog.length > 1 ? 's' : '') + ' (bonding curve or pool)' : 'none in the top 20'}</span><span>dev</span><span>${devH ? `<b class="red">${nf(devH.pct, 2)}%</b> · ${addr(devH.owner)}` : H.dev ? `not in the top 20 · ${addr(H.dev)}` : '—'}</span></div>`);
+    const mx = Math.max(...H.top.map(x => x.pct || 0), 1);
+    for (const [i, x] of H.top.entries()) html(`<div class="ln"><span class="faint">${String(i + 1).padStart(2)}</span>  <span class="num">${(nf(x.pct, 2) + '%').padStart(7)}</span>  <span class="hbar ${x.dev ? 'd' : x.wallet === false ? 'p' : ''}" style="width:${Math.max(2, (x.pct || 0) / mx * 160).toFixed(0)}px"></span>${x.owner ? (x.wallet ? addr(x.owner) : `<span class="dim">${short(x.owner)} program</span>`) : '<span class="dim">unknown</span>'}${x.dev ? ' <span class="bd r">dev</span>' : ''}</div>`);
+    html(`<div class="btns">${H.dev ? `<button class="pri" data-run="dev ${arg}">who is the dev</button>` : ''}${wal[0] ? `<button data-run="opsec ${wal[0].owner}">opsec top holder</button>` : ''}${wal[1] ? `<button data-run="link ${wal[0].owner} ${wal[1].owner}">link top 2</button>` : ''}<a href="https://pump.fun/coin/${arg}" target="_blank" rel="noopener">pump.fun ↗</a></div>`);
+  } catch (e) { sp.fail(e.message); }
+}
+
+// ------------------------------------------------------------ watch: wallets you keep an eye on. kept in this browser only.
+let WATCH = store.get('watch', []);
+const saveWatch = () => { store.set('watch', WATCH); watchW(); };
+async function watchCmd(a) {
+  const w = a[0] === 'me' ? WALLET : a[0]; if (!isAddr(w)) { if (!WATCH.length) return ln(`usage: ${cmd('watch ', 'watch <wallet> [label]')}. pr1v pings you here when it moves.`, 'dim'); hd('watching'); WATCH.forEach((x, i) => ln(`${String(i + 1).padStart(2)}  ${addr(x.w)} ${x.label ? '<b>' + esc(x.label) + '</b>' : ''} <span class="dim">last move ${x.t ? ago(x.t) + ' ago' : '—'}</span> ${cmd('unwatch ' + x.w, 'unwatch')}`)); return; }
+  if (WATCH.find(x => x.w === w)) return ln(`already watching ${addr(w)}`, 'dim'); if (WATCH.length >= 12) return ln('you can watch up to 12 wallets.', 'dim');
+  const sp = spin('reading its last move…'); try { const S = await api('sigs', { w, limit: 1 }); const x = { w, label: a.slice(1).join(' ').slice(0, 24), s: S[0] ? S[0].s : null, t: S[0] ? S[0].t : null }; WATCH.push(x); saveWatch(); sp.ok(`watching ${addr(w)}${x.label ? ' as <b>' + esc(x.label) + '</b>' : ''}. last move ${x.t ? ago(x.t) + ' ago' : 'never'}. the list lives in this browser only.`); } catch (e) { sp.fail(e.message); }
+}
+function unwatch(arg) { const i = WATCH.findIndex((x, k) => x.w === arg || String(k + 1) === arg); if (i < 0) return ln(`not watching that. ${cmd('watch')}`, 'dim'); const [x] = WATCH.splice(i, 1); saveWatch(); ln(`stopped watching ${short(x.w)}`, 'dim'); }
+function watchW() { const el = $('#watchW'); if (!el) return; el.innerHTML = WATCH.length ? `<div class="wl">${WATCH.map(x => `<div><a class="cmd" data-run="opsec ${x.w}">${x.label ? esc(x.label) + ' · ' : ''}${short(x.w)}</a><span class="${x.fresh ? 'new' : 'dim'}">${x.t ? ago(x.t) : '—'}</span><button class="x" data-run="unwatch ${x.w}" aria-label="stop watching">×</button></div>`).join('')}</div>` : `<p class="dim">keep an eye on any wallet: a dev, a whale, your own. pr1v pings you when it moves.</p><div class="row2"><button data-fill="watch ">watch a wallet</button>${WALLET ? '<button data-run="watch me">watch mine</button>' : ''}</div>`; }
+async function watchPoll() { if (!WATCH.length || document.hidden) return; for (const x of WATCH) { try { const S = await api('sigs', { w: x.w, limit: 1 }); const top = S[0]; if (top && top.s !== x.s) { const was = x.s; x.s = top.s; x.t = top.t; x.fresh = true; if (was) { toast(`${x.label || short(x.w)} just moved`); ln(`<span class="ink">●</span> ${x.label ? '<b>' + esc(x.label) + '</b> ' : ''}${addr(x.w)} just moved · <a href="${txl(top.s)}" target="_blank" rel="noopener">tx ↗</a> · ${cmd('opsec ' + x.w, 'opsec')}`); } } } catch { } } store.set('watch', WATCH); watchW(); setTimeout(() => { WATCH.forEach(x => x.fresh = false); }, 30000); }
+setInterval(watchPoll, 45000);
+
+// ------------------------------------------------------------ status line, tmux style
+function sbar() { const el = $('#sbar'); if (!el) return; const term = !$('#paneTerm').hidden, S = trStats(), off = -new Date().getTimezoneOffset() / 60;
+  el.innerHTML = `<span><b>[pr1v]</b></span><span class="sw ${term ? 'on' : ''}">0:term${term ? '*' : ''}</span><span class="sw ${term ? '' : 'on'}">1:trenches${term ? '' : '*'}</span><span class="sp"></span>
+    <span class="${NET.ok ? 'ok' : 'bad'}">● mainnet</span><span class="hide-s">rpc ${NET.ms ? Math.round(NET.ms) + 'ms' : '—'}</span><span class="hide-s">launches ${S.n}</span><span class="hide-s">watching ${WATCH.length}</span><span>${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} UTC${off >= 0 ? '+' : ''}${off}</span>`; }
+setInterval(sbar, 1000);
+
 // ------------------------------------------------------------ runner
-const ALIAS = { trench: 'trenches', live: 'trenches', pump: 'trenches', who: 'dev', deployer: 'dev', creator: 'dev', scan: 'opsec', score: 'opsec', doxx: 'opsec', '?': 'help', man: 'help', funding: 'trace', names: 'name', sns: 'name', hours: 'clock', tz: 'clock', balance: 'bags', fingerprint: 'whoami', inbox: 'drop', cls: 'clear', ca: 'ca' };
-const CMDS = ['trenches', 'dev', 'token', 'opsec', 'trace', 'link', 'clock', 'bags', 'apps', 'name', 'whoami', 'drop', 'leaks', 'share', 'connect', 'disconnect', 'coin', 'ca', 'buy', 'chart', 'x', 'about', 'faq', 'roadmap', 'ls', 'cat', 'history', 'clear', 'theme', 'intro', 'help', 'date', 'echo', 'sudo', 'exit', 'me'];
+const ALIAS = { top: 'holders', bundle: 'holders', follow: 'watch', track: 'watch', trench: 'trenches', live: 'trenches', pump: 'trenches', who: 'dev', deployer: 'dev', creator: 'dev', scan: 'opsec', score: 'opsec', doxx: 'opsec', '?': 'help', man: 'help', funding: 'trace', names: 'name', sns: 'name', hours: 'clock', tz: 'clock', balance: 'bags', fingerprint: 'whoami', inbox: 'drop', cls: 'clear', ca: 'ca' };
+const CMDS = ['trenches', 'dev', 'token', 'holders', 'watch', 'unwatch', 'opsec', 'trace', 'link', 'clock', 'bags', 'apps', 'name', 'whoami', 'drop', 'leaks', 'share', 'connect', 'disconnect', 'coin', 'ca', 'buy', 'chart', 'x', 'about', 'faq', 'roadmap', 'ls', 'cat', 'history', 'clear', 'theme', 'intro', 'help', 'date', 'echo', 'sudo', 'exit', 'me'];
 async function run(line, silent) {
   line = String(line || '').trim(); if (!line) return;
   if (BUSY) { toast('one moment, still working (ctrl+c to cancel)'); return; }
@@ -442,7 +477,7 @@ async function run(line, silent) {
   try {
     switch (c) {
       case 'help': help(); break; case 'trenches': if (a[0] && ['new', 'hot', 'organic', 'traded'].includes(a[0])) { $$('#trTabs button').forEach(x => x.classList.toggle('on', x.dataset.t === a[0])); TR.tab = a[0]; } showTab('trench'); break;
-      case 'dev': showTab('term'); await devCmd(a[0]); break; case 'token': { if (!isAddr(a[0])) { ln(`usage: ${cmd('token ', 'token <mint>')}`, 'dim'); break; } const c = await tokenCard(a[0]); if (c) { html(`<div class="tbl"><span>mcap</span><span>${usd(c.mcap)}</span><span>holders</span><span>${nf(c.holders)}</span><span>liquidity</span><span>${usd(c.liq)}</span><span>dev</span><span>${c.dev ? addr(c.dev) : '—'}</span></div>`); html(`<div class="btns"><button class="pri" data-run="dev ${c.mint}">who is the dev</button><a href="https://pump.fun/coin/${c.mint}" target="_blank" rel="noopener">pump.fun ↗</a></div>`); } break; } case 'opsec': await opsec(a[0]); break; case 'trace': await trace(a[0]); break; case 'link': await link(a[0], a[1]); break;
+      case 'dev': showTab('term'); await devCmd(a[0]); break; case 'holders': await holdersCmd(a[0]); break; case 'watch': await watchCmd(a); break; case 'unwatch': unwatch(a[0]); break; case 'token': { if (!isAddr(a[0])) { ln(`usage: ${cmd('token ', 'token <mint>')}`, 'dim'); break; } const c = await tokenCard(a[0]); if (c) { html(`<div class="tbl"><span>mcap</span><span>${usd(c.mcap)}</span><span>holders</span><span>${nf(c.holders)}</span><span>liquidity</span><span>${usd(c.liq)}</span><span>dev</span><span>${c.dev ? addr(c.dev) : '—'}</span></div>`); html(`<div class="btns"><button class="pri" data-run="dev ${c.mint}">who is the dev</button><a href="https://pump.fun/coin/${c.mint}" target="_blank" rel="noopener">pump.fun ↗</a></div>`); } break; } case 'opsec': await opsec(a[0]); break; case 'trace': await trace(a[0]); break; case 'link': await link(a[0], a[1]); break;
       case 'clock': await clockCmd(a[0]); break; case 'bags': await bags(a[0]); break; case 'apps': await apps(a[0]); break; case 'name': await names(a[0]); break;
       case 'whoami': whoami(); break; case 'drop': await drop(a); break; case 'leaks': leaks(); break; case 'share': share(); break;
       case 'connect': await connect(); break; case 'disconnect': await disconnect(); break; case 'me': WALLET ? ln(`connected as ${addr(WALLET)}`) : ln(`not connected. ${cmd('connect')}`, 'dim'); break;
@@ -517,7 +552,7 @@ const ART = `██████╗ ██████╗  ██╗██╗   �
 let booted = false;
 async function boot() {
   if (booted) return; booted = true; document.body.classList.add('ready');
-  fpW(); todoW(); dropW(); coinW(); trPoll(true);
+  fpW(); todoW(); dropW(); coinW(); trPoll(true); watchW(); sbar(); setTimeout(watchPoll, 4000);
   const d = new Date(); const step = reduced ? 0 : 90;
   const L = [() => ln(`last login: ${d.toDateString()} ${d.toTimeString().slice(0, 8)} on ttys001`, 'dim boot'), () => pre(ART, 'art boot'), () => ln('<b>pr1v</b> · the privacy layer for solana', 'boot'), () => ln('public chain. pr1v you.', 'dim boot'), () => ln('', 'boot'),
     () => html(`<div class="tbl boot"><span>${cmd('trenches')}</span><span>live pump.fun launches and who is behind them</span><span>${cmd('opsec ', 'opsec <wallet>')}</span><span>how doxxed is a wallet</span><span>${cmd('whoami')}</span><span>what this browser gives away</span><span>${cmd('trace ', 'trace <wallet>')}</span><span>follow its first SOL back</span><span>${cmd('drop')}</span><span>sealed notes between wallets</span><span>${cmd('help')}</span><span>everything else</span></div>`),

@@ -156,6 +156,8 @@ const paintTex = (hue) => tex(256, 180, (x, w, h) => { const g = x.createLinearG
 const SC = document.createElement('canvas'); SC.width = 640; SC.height = 400; const sx = SC.getContext('2d'); const screenTex = new THREE.CanvasTexture(SC); screenTex.colorSpace = THREE.SRGBColorSpace;
 const PX = { p: ['.....', '####.', '#...#', '#...#', '####.', '#....', '#....'], r: ['.....', '#.##.', '##..#', '#....', '#....', '.....', '.....'], 1: ['..#..', '.##..', '..#..', '..#..', '.###.', '.....', '.....'], v: ['.....', '#...#', '#...#', '.#.#.', '..#..', '.....', '.....'] };
 let lastScreen = '';
+const SEEN = (() => { const n = navigator, off = -new Date().getTimezoneOffset() / 60; let gpu = 'hidden'; try { const g = renderer.getContext(), e = g.getExtension('WEBGL_debug_renderer_info'); if (e) gpu = String(g.getParameter(e.UNMASKED_RENDERER_WEBGL)).replace(/^ANGLE \(|\)$/g, '').replace(/Direct3D.*$|, OpenGL.*$/, '').trim(); } catch { }
+  return [['timezone', `${Intl.DateTimeFormat().resolvedOptions().timeZone || '—'} UTC${off >= 0 ? '+' : ''}${off}`], ['screen', `${screen.width}×${screen.height} @${devicePixelRatio}x`], ['language', (n.languages || [n.language]).slice(0, 2).join(', ')], ['gpu', gpu], ['cores', String(n.hardwareConcurrency || 'hidden')]]; })();
 const LIME = '#c6ff3d', LDIM = '#5f7d22';
 function pixWord(x, ox, oy, u, cur) { ['p', 'r', 1, 'v'].forEach((ch, i) => PX[ch].forEach((row, r) => [...row].forEach((v, c) => { if (v === '#') x.fillRect(ox + (i * 6 + c) * u, oy + r * u, u - 1, u - 1); }))); if (cur) x.fillRect(ox + 24 * u + 3, oy + u, 3 * u, 4 * u); }
 function drawScreen(state, tt) {
@@ -163,30 +165,33 @@ function drawScreen(state, tt) {
   const x = sx, w = 640, h = 400; x.textBaseline = 'alphabetic';
   if (state === 'off') { x.fillStyle = '#060707'; x.fillRect(0, 0, w, h); }
   if (state === 'seq') {
-    x.fillStyle = '#0b0e0b'; x.fillRect(0, 0, w, h);
-    if (tt < .95) { // firmware: checks scroll by, then a bar
-      const L = [['pr1v bios 1.0 · secure boot', ''], ['cpu', 'ok'], ['memory', '16384 MB ok'], ['tpm', 'sealed'], ['disk', 'encrypted · aes-256'], ['network', '3 hops · no logs'], ['loading pr1v os', '']];
-      x.font = '600 19px monospace'; const n = Math.min(L.length, Math.floor(tt / .1) + 1);
-      for (let i = 0; i < n; i++) { const [k, v] = L[i]; x.fillStyle = i === 0 ? LIME : '#9fbf6a'; x.fillText(v ? (k + ' ').padEnd(15, '.') + ' ' + v : k, 34, 52 + i * 34); }
-      if (tt > .6) { const p = clamp((tt - .6) / .32); x.strokeStyle = LDIM; x.lineWidth = 2; x.strokeRect(34, 318, 572, 22); x.fillStyle = LIME; x.fillRect(38, 322, 564 * p, 14); }
-    } else if (tt < 1.55) { // the mark
-      const k = clamp((tt - .95) / .25); x.globalAlpha = k; x.fillStyle = LIME; pixWord(x, (w - 27 * 15) / 2, 110, 15, Math.floor(tt * 4) % 2 === 0);
-      x.font = '600 20px monospace'; x.textAlign = 'center'; x.fillStyle = '#9fbf6a'; x.fillText('public chain. pr1v you.', w / 2, 300); x.textAlign = 'left'; x.globalAlpha = 1;
-      const sy = ((tt - .95) / .6) * h; x.fillStyle = 'rgba(198,255,61,.10)'; x.fillRect(0, sy - 30, w, 30);
-    } else if (tt < 2.95) { // login: user, password, checks
-      x.fillStyle = LIME; pixWord(x, 34, 30, 6, false); x.font = '600 15px monospace'; x.fillStyle = '#7d9a4a'; x.fillText('pr1v os · tty1 · ' + new Date().toISOString().slice(0, 10), 220, 52);
-      x.strokeStyle = LDIM; x.lineWidth = 2; x.strokeRect(34, 84, 572, 290);
-      x.font = '600 22px monospace'; const u = 'anon'.slice(0, Math.floor(clamp((tt - 1.6) / .3) * 4)), pw = Math.floor(clamp((tt - 1.95) / .5) * 8);
-      x.fillStyle = '#9fbf6a'; x.fillText('login', 60, 130); x.fillText('password', 60, 172); x.fillStyle = '#e8ffd0'; x.fillText(u, 200, 130);
-      x.fillStyle = LIME; for (let i = 0; i < pw; i++) { x.beginPath(); x.arc(208 + i * 24, 165, 7, 0, 7); x.fill(); }
-      const cx = tt < 1.95 ? 200 + u.length * 13.4 : 200 + pw * 24; if (Math.floor(tt * 6) % 2 === 0 && tt < 2.45) x.fillRect(cx + 2, tt < 1.95 ? 112 : 154, 11, 22);
-      if (tt > 2.45) { const p = clamp((tt - 2.45) / .3); x.fillStyle = '#9fbf6a'; x.fillText('verifying', 60, 222); x.strokeStyle = LDIM; x.strokeRect(200, 205, 300, 20); x.fillStyle = LIME; x.fillRect(203, 208, 294 * p, 14); }
-      const C = [['key', 'ok'], ['fingerprint', 'masked'], ['route', '3 hops'], ['session', 'sealed']];
-      x.font = '600 18px monospace'; C.forEach(([k, v], i) => { if (tt > 2.55 + i * .08) { x.fillStyle = LIME; x.fillText('✓', 60, 262 + i * 27); x.fillStyle = '#9fbf6a'; x.fillText(k.padEnd(13, ' ') + v, 90, 262 + i * 27); } });
-    } else { // access granted
-      const f = Math.floor(tt * 14) % 2; x.fillStyle = f ? LIME : '#b4ea36'; x.fillRect(70, 140, 500, 120); x.fillStyle = '#0b0e0b'; x.font = '800 40px monospace'; x.textAlign = 'center'; x.fillText('ACCESS GRANTED', w / 2, 212); x.font = '600 16px monospace'; x.fillText('welcome back, anon', w / 2, 244); x.textAlign = 'left';
+    // the screen wakes, shows what your own browser is giving away, redacts it line by line, then a quiet password and the terminal opens out of it
+    const BG = '#0a0d0a', TXT = '#e6f2d6', DIM = '#6f8a52';
+    x.fillStyle = '#030403'; x.fillRect(0, 0, w, h);
+    if (tt < .42) { const a = ease(clamp(tt / .22)), v = ease(clamp((tt - .2) / .22)); x.fillStyle = BG; const hh = Math.max(2, h * v); x.fillRect(0, (h - hh) / 2, w, hh); x.fillStyle = LIME; x.globalAlpha = 1 - v; x.fillRect(w / 2 - w * a / 2, h / 2 - 1, w * a, 2); x.globalAlpha = 1; }
+    else {
+      x.fillStyle = BG; x.fillRect(0, 0, w, h);
+      const out = clamp((tt - 1.95) / .3);
+      // header: the mark, small
+      x.fillStyle = LIME; x.globalAlpha = clamp((tt - .45) / .2); pixWord(x, 30, 26, 5, false); x.globalAlpha = 1;
+      x.font = '600 14px monospace'; x.fillStyle = DIM; x.textAlign = 'right'; x.globalAlpha = clamp((tt - .5) / .2) * (1 - out); x.fillText('whoami · this browser', w - 30, 50); x.textAlign = 'left';
+      // what this browser tells every site, then redacted
+      const L = SEEN; x.font = '600 19px monospace';
+      L.forEach(([k, v], i) => { const t0 = .55 + i * .11; if (tt < t0) return; const al = clamp((tt - t0) / .12) * (1 - out); x.globalAlpha = al; const y = 108 + i * 46;
+        x.fillStyle = DIM; x.fillText(k, 30, y); x.fillStyle = TXT; const vx = 170; const vt = v.length > 30 ? v.slice(0, 29) + '…' : v; x.fillText(vt, vx, y);
+        const r0 = 1.22 + i * .1, rk = ease(clamp((tt - r0) / .3)); if (rk > 0) { const tw = x.measureText(vt).width + 10; x.fillStyle = rk < 1 ? LIME : '#2b3524'; x.fillRect(vx - 5, y - 19, tw * rk, 26); if (rk >= 1) { x.fillStyle = '#4a5c33'; x.fillRect(vx - 5, y + 6, tw, 1); } }
+        x.globalAlpha = 1; });
+      // password: a pill, eight dots, then it opens into the terminal
+      if (tt > 2.15) { const pk = ease(clamp((tt - 2.15) / .25)), n = Math.floor(clamp((tt - 2.35) / .5) * 8), ex = ease(clamp((tt - 2.95) / .35));
+        const pw = 300, ph = 56, px = (w - pw) / 2, py = 214;
+        const X = lerp(px, 0, ex), Y = lerp(py, 0, ex), W = lerp(pw, w, ex), H = lerp(ph, h, ex), R = lerp(28, 0, ex);
+        x.globalAlpha = pk; x.font = '600 15px monospace'; x.textAlign = 'center'; x.fillStyle = DIM; x.fillText('anon', w / 2, 190); x.textAlign = 'left';
+        const fill = ex > 0 ? `rgb(${Math.round(lerp(10, 231, ex))},${Math.round(lerp(13, 231, ex))},${Math.round(lerp(10, 234, ex))})` : BG;
+        x.fillStyle = fill; x.beginPath(); x.roundRect(X, Y, W, H, R); x.fill(); x.strokeStyle = tt > 2.85 ? LIME : '#3d4d2a'; x.lineWidth = 2; if (ex < .98) { x.globalAlpha = pk * (1 - ex); x.stroke(); }
+        x.globalAlpha = pk * (1 - ex * 2.5 > 0 ? 1 - ex * 2.5 : 0); x.fillStyle = LIME; for (let i = 0; i < n; i++) { x.beginPath(); x.arc(px + 44 + i * 30, py + ph / 2, 6.5, 0, 7); x.fill(); }
+        if (n < 8 && Math.floor(tt * 5) % 2 === 0) x.fillRect(px + 34 + n * 30, py + 16, 3, 24); x.globalAlpha = 1; }
     }
-    for (let y = 0; y < h; y += 3) { x.fillStyle = 'rgba(0,0,0,.18)'; x.fillRect(0, y, w, 1); }
+    if (tt < 2.95) for (let y = 0; y < h; y += 3) { x.fillStyle = 'rgba(0,0,0,.16)'; x.fillRect(0, y, w, 1); }
   }
   if (state === 'term') { x.fillStyle = '#e7e7ea'; x.fillRect(0, 0, w, h); x.fillStyle = '#f5f5f7'; x.fillRect(14, 30, w - 28, h - 44); x.fillStyle = '#e1e1e5'; x.fillRect(14, 30, w - 28, 22); x.fillStyle = '#e1e1e5'; x.fillRect(0, 0, w, 20);
     x.fillStyle = '#26262b'; x.font = '700 11px monospace'; x.fillText('pr1v', 10, 14); x.fillStyle = '#85858f'; x.font = '10px monospace'; x.fillText('pr1v — anon — 160×24', 36, 45);
@@ -423,7 +428,7 @@ function frame(t) {
     const lidA = ss(4.45, 5.25, ti); INS.hinge.rotation.x = lidA * 1.83; INS.hinge.updateWorldMatrix(true, false);
     INS.scrL.intensity = ss(4.9, 5.3, ti) * 2.2;
     if (ti < 5.0) drawScreen('off', 0); else if (ti < 8.3) drawScreen('seq', ti - 5.0); else drawScreen('term', 0);
-    if (ti > 7.95 && window.__pr1vMusic) window.__pr1vMusic.chime();
+    if (ti > 7.9 && window.__pr1vMusic) window.__pr1vMusic.chime();
     INS.fireL.intensity = 7 + Math.sin(t * 11) * 1.2 + Math.sin(t * 17.3) * .8;
     // the dive
     const dv = ss(8.3, 9.55, ti); const readP = seatEye.clone().lerp(V(0, 1.075, -3.33), ss(4.95, 6.3, ti));
