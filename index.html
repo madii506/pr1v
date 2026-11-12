@@ -14,7 +14,7 @@
 <meta name="theme-color" content="#ececee">
 <link rel="icon" href="/favicon.png">
 <link rel="preload" href="/assets/fonts/jbmono.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/assets/pr1v.css?v=3">
+<link rel="stylesheet" href="/assets/pr1v.css?v=4">
 </head>
 <body>
 <canvas id="intro" aria-hidden="true"></canvas>
@@ -63,6 +63,8 @@
           <button data-run="opsec me">opsec me</button>
           <button data-run="trenches">trenches</button>
           <button data-fill="dev ">dev &lt;coin&gt;</button>
+          <button data-fill="holders ">holders &lt;coin&gt;</button>
+          <button data-fill="watch ">watch &lt;wallet&gt;</button>
           <button data-fill="trace ">trace &lt;wallet&gt;</button>
           <button data-fill="link ">link &lt;a&gt; &lt;b&gt;</button>
           <button data-run="whoami">whoami</button>
@@ -83,6 +85,7 @@
         <div class="thead"><span></span><span>coin</span><span>mcap</span><span>holders</span><span>5m flow</span><span>dev</span><span></span></div>
         <div class="tlist" id="trList"><p class="dim pad">reading pump.fun…</p></div>
       </div>
+      <div class="sbar" id="sbar"></div>
     </section>
 
     <aside class="side" id="side">
@@ -93,6 +96,10 @@
           <div class="row"><input id="scanI" placeholder="paste any Solana wallet" spellcheck="false" autocomplete="off"><button>scan</button></div>
           <div class="row2"><button type="button" data-run="opsec me">scan mine</button><button type="button" data-fill="link ">link two</button><button type="button" data-fill="trace ">trace</button></div>
         </form>
+      </section>
+      <section class="win w">
+        <div class="tbar"><span class="sq"></span><span class="ttl">watch</span></div>
+        <div class="wb" id="watchW"></div>
       </section>
       <section class="win w">
         <div class="tbar"><span class="sq"></span><span class="ttl">trenches · live</span><i class="live"></i></div>
@@ -119,7 +126,7 @@
 </div>
 <div id="toast" role="status"></div>
 <script src="/assets/nacl.min.js" defer></script>
-<script src="/assets/term.js?v=3" defer></script>
-<script type="module" src="/assets/intro.js?v=3"></script>
+<script src="/assets/term.js?v=4" defer></script>
+<script type="module" src="/assets/intro.js?v=4"></script>
 </body>
 </html>
