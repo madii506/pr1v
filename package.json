@@ -1,0 +1,7 @@
+{
+  "name": "pr1v",
+  "private": true,
+  "engines": { "node": "22.x" },
+  "dependencies": { "@solana/web3.js": "1.99.0" },
+  "overrides": { "rpc-websockets": "9.3.3" }
+}
