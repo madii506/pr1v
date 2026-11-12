@@ -235,7 +235,8 @@ async function dev(w) {
 
 // ------------------------------------------------------------------ holders: the 20 biggest token accounts, who owns them, and which ones are programs (curves, pools)
 async function holders(m) {
-  const [sup, big] = await Promise.all([rpc('getTokenSupply', [m]), rpc('getTokenLargestAccounts', [m, { commitment: 'confirmed' }])]);
+  let sup, big; try { [sup, big] = await Promise.all([rpc('getTokenSupply', [m]), rpc('getTokenLargestAccounts', [m, { commitment: 'confirmed' }])]); }
+  catch (e) { const tk = await token(m).catch(() => null); if (!tk) throw e; return { mint: m, sym: tk.sym, dev: tk.dev, fallback: true, holders: tk.holders, topPct: tk.audit && tk.audit.topPct, devPct: tk.audit && tk.audit.devPct, top: [] }; }
   const list = (big && big.value || []).slice(0, 20); const supply = +(sup && sup.value && sup.value.uiAmount) || 0;
   const infos = list.length ? await rpc('getMultipleAccounts', [list.map(x => x.address), { encoding: 'jsonParsed' }]) : { value: [] };
   const t = await token(m).catch(() => null);
