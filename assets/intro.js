@@ -23,6 +23,42 @@ function webglOK() { try { const c = document.createElement('canvas'); return !!
 if (AT == null && (Q.has('nointro') || seen || reduced || !webglOK())) { done(); }
 else { window.__pr1vIntroRunning = true; try { start(); } catch (e) { console.error(e); done(); } }
 
+
+// ------------------------------------------------------------------ calm music, made live in the browser (no files): a slow pad, a low drone, soft bells
+function makeMusic() {
+  const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null;
+  let ctx = null, master = null, started = false, muted = false, chimed = false;
+  const midi = m => 440 * Math.pow(2, (m - 69) / 12);
+  function build() {
+    ctx = new AC(); master = ctx.createGain(); master.gain.value = 0;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1900; lp.Q.value = .4;
+    const rev = ctx.createConvolver(), len = Math.floor(ctx.sampleRate * 3.4), buf = ctx.createBuffer(2, len, ctx.sampleRate);
+    for (let c = 0; c < 2; c++) { const d = buf.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.8); } rev.buffer = buf;
+    const wet = ctx.createGain(); wet.gain.value = .6; const dry = ctx.createGain(); dry.gain.value = .55;
+    lp.connect(dry); dry.connect(master); lp.connect(rev); rev.connect(wet); wet.connect(master); master.connect(ctx.destination);
+    const dl = ctx.createDelay(1.5); dl.delayTime.value = .46; const fb = ctx.createGain(); fb.gain.value = .34; dl.connect(fb); fb.connect(dl); dl.connect(lp);
+    return { lp, dl };
+  }
+  function pad(bus, notes, t, dur) { for (const n of notes) for (const det of [-6, 6]) { const o = ctx.createOscillator(), g = ctx.createGain(); o.type = n < 50 ? 'sine' : 'triangle'; o.frequency.value = midi(n); o.detune.value = det;
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(n < 50 ? .05 : .028, t + 1.8); g.gain.setValueAtTime(n < 50 ? .05 : .028, t + dur - .3); g.gain.linearRampToValueAtTime(0, t + dur + 2.2); o.connect(g); g.connect(bus.lp); o.start(t); o.stop(t + dur + 2.4); } }
+  function bell(bus, n, t, v = .05) { for (const [mul, vv] of [[1, v], [2.005, v * .25], [3.01, v * .08]]) { const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine'; o.frequency.value = midi(n) * mul;
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vv, t + .012); g.gain.exponentialRampToValueAtTime(.0001, t + 2.6); o.connect(g); g.connect(bus.lp); g.connect(bus.dl); o.start(t); o.stop(t + 2.8); } }
+  let BUS = null;
+  return {
+    get on() { return started && !muted; },
+    async start() { if (started) return true; if (!ctx) BUS = build(); try { await ctx.resume(); } catch { } if (ctx.state !== 'running') return false; started = true;
+      const t0 = ctx.currentTime + .05; master.gain.setValueAtTime(0, t0); master.gain.linearRampToValueAtTime(.34, t0 + 2.6);
+      const C = [[45, 57, 60, 64, 71], [41, 57, 60, 64, 69], [48, 55, 59, 64, 67], [43, 55, 59, 62, 66], [45, 57, 60, 64, 71]];
+      C.forEach((ch, i) => pad(BUS, ch, t0 + i * 4.2, 4.2));
+      const sub = ctx.createOscillator(), sg = ctx.createGain(); sub.type = 'sine'; sub.frequency.value = midi(33); sg.gain.setValueAtTime(0, t0); sg.gain.linearRampToValueAtTime(.06, t0 + 3); sub.connect(sg); sg.connect(BUS.lp); sub.start(t0); sub.stop(t0 + 26);
+      const P = [69, 72, 74, 76, 79, 81, 84, 76, 72]; let t = t0 + 1.2, k = 0; while (t < t0 + 21) { bell(BUS, P[(k * 5 + (k >> 1)) % P.length], t, .035 + (k % 3) * .008); t += .7 + ((k * 7) % 5) * .14; k++; }
+      return true; },
+    chime() { if (!started || chimed) return; chimed = true; const t = ctx.currentTime + .02; [76, 81, 84, 88].forEach((n, i) => bell(BUS, n, t + i * .09, .05)); },
+    mute(m) { muted = m; if (!ctx) return; master.gain.cancelScheduledValues(ctx.currentTime); master.gain.linearRampToValueAtTime(m ? 0 : .34, ctx.currentTime + .4); },
+    fade(sec = 3) { if (!ctx || !started) return; const n = ctx.currentTime; master.gain.cancelScheduledValues(n); master.gain.setValueAtTime(master.gain.value, n); master.gain.linearRampToValueAtTime(0, n + sec); setTimeout(() => { try { ctx.close(); } catch { } }, sec * 1000 + 300); },
+  };
+}
+
 function start() {
 // ------------------------------------------------------------------ helpers
 const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
@@ -387,6 +423,7 @@ function frame(t) {
     const lidA = ss(4.45, 5.25, ti); INS.hinge.rotation.x = lidA * 1.83; INS.hinge.updateWorldMatrix(true, false);
     INS.scrL.intensity = ss(4.9, 5.3, ti) * 2.2;
     if (ti < 5.0) drawScreen('off', 0); else if (ti < 8.3) drawScreen('seq', ti - 5.0); else drawScreen('term', 0);
+    if (ti > 7.95 && window.__pr1vMusic) window.__pr1vMusic.chime();
     INS.fireL.intensity = 7 + Math.sin(t * 11) * 1.2 + Math.sin(t * 17.3) * .8;
     // the dive
     const dv = ss(8.3, 9.55, ti); const readP = seatEye.clone().lerp(V(0, 1.075, -3.33), ss(4.95, 6.3, ti));
@@ -413,14 +450,17 @@ function frame(t) {
 resize();
 if (AT != null) { frame(AT); window.__introAt = t => frame(t); window.__introReady = true; return; }
 let t0 = null, T = 0, finished = false, skipTo = null;
-function finish() { if (finished) return; finished = true; done(); setTimeout(() => { renderer.dispose(); composer.dispose && composer.dispose(); }, 400); }
-function skip() { if (finished) return; if (T < END - .9) skipTo = END - .9; }
+const MUS = makeMusic(); window.__pr1vMusic = MUS; const snd = document.getElementById('snd');
+const sndUI = () => { if (!snd) return; snd.classList.toggle('on', !!(MUS && MUS.on)); snd.setAttribute('aria-label', MUS && MUS.on ? 'mute the music' : 'play the music'); };
+if (MUS) { MUS.start().then(sndUI); if (snd) { snd.hidden = false; snd.addEventListener('click', async e => { e.stopPropagation(); if (!MUS.on && !(await MUS.start())) return; else if (MUS.on && snd.classList.contains('on')) MUS.mute(true); else MUS.mute(false); sndUI(); }); } }
+function finish() { if (finished) return; finished = true; MUS && MUS.fade(3.5); if (snd) snd.hidden = true; done(); setTimeout(() => { renderer.dispose(); composer.dispose && composer.dispose(); }, 400); }
+function skip() { if (finished) return; if (T < END - .55) skipTo = END - .55; }
 skipBtn && skipBtn.addEventListener('click', e => { e.stopPropagation(); skip(); });
 canvas.addEventListener('pointerdown', skip); addEventListener('keydown', e => { if (!finished && !e.metaKey && !e.ctrlKey) skip(); });
-let last = performance.now();
+let last = performance.now(), slow = 0;
 function loop(now) {
   if (finished) return; requestAnimationFrame(loop);
-  const dt = Math.min(.05, (now - last) / 1000); last = now;
+  const raw = (now - last) / 1000, dt = Math.min(.12, raw); last = now; slow = raw > .2 ? slow + 1 : Math.max(0, slow - 1); if (slow > 25 && T < END - .55) skipTo = END - .55;
   if (t0 == null) t0 = now;
   if (skipTo != null) { T = Math.max(T, skipTo); skipTo = null; } else T += dt;
   frame(Math.min(T, END));
